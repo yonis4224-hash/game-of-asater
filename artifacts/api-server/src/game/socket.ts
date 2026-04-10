@@ -22,6 +22,14 @@ function maybeStartGame(roomCode: string): void {
   }
 }
 
+function syncRoomState(roomCode: string, io: SocketServer): void {
+  const room = getRoom(roomCode);
+  if (!room) return;
+  io.to(roomCode).emit("playersUpdate", room.players);
+  io.to(roomCode).emit("roomSettings", room.settings);
+  maybeStartGame(roomCode);
+}
+
 export function initSocketServer(httpServer: HttpServer): void {
   const io = new SocketServer(httpServer, {
     cors: { origin: "*", methods: ["GET", "POST"] },
@@ -39,9 +47,7 @@ export function initSocketServer(httpServer: HttpServer): void {
       socket.join(roomCode);
       playerRoomMap.set(socket.id, roomCode);
       socket.emit("roomCreated", { roomCode, playerId: socket.id, isCreator: true });
-      const room = getRoom(roomCode)!;
-      io.to(roomCode).emit("playersUpdate", room.players);
-      io.to(roomCode).emit("roomSettings", room.settings);
+      syncRoomState(roomCode, io);
     });
 
     socket.on("joinRoom", ({ roomCode, playerName }: { roomCode: string; playerName: string }) => {
@@ -53,8 +59,7 @@ export function initSocketServer(httpServer: HttpServer): void {
       socket.join(roomCode);
       playerRoomMap.set(socket.id, roomCode);
       socket.emit("roomJoined", { roomCode, playerId: socket.id, isCreator: false });
-      io.to(roomCode).emit("playersUpdate", room.players);
-      io.to(roomCode).emit("roomSettings", room.settings);
+      syncRoomState(roomCode, io);
     });
 
     socket.on("checkRoom", (roomCode: string, callback: (r: { exists: boolean; playerCount: number }) => void) => {
