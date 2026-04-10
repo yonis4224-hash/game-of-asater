@@ -12,6 +12,16 @@ import {
 } from "./questions";
 import type { Round1Data, Round2Data, Round3Data, Round4Data } from "./types";
 
+function maybeStartGame(roomCode: string): void {
+  const room = getRoom(roomCode);
+  if (!room) return;
+  const playersNeeded = room.gameMode === "2v2" ? 4 : 2;
+  const allReady = room.players.length >= playersNeeded && room.players.every((p) => p.isReady);
+  if (allReady && room.currentRound === 1 && !room.roundData) {
+    startGame(roomCode);
+  }
+}
+
 export function initSocketServer(httpServer: HttpServer): void {
   const io = new SocketServer(httpServer, {
     cors: { origin: "*", methods: ["GET", "POST"] },
@@ -91,6 +101,7 @@ export function initSocketServer(httpServer: HttpServer): void {
       room.gameMode = mode;
       io.to(roomCode).emit("gameModeChanged", mode);
       io.to(roomCode).emit("systemMessage", `تم تغيير وضع اللعبة إلى ${mode === "2v2" ? "2 ضد 2" : "1 ضد 1"}`);
+      maybeStartGame(roomCode);
     });
 
     socket.on("chooseTeam", ({ roomCode, team }: { roomCode: string; team: "teamA" | "teamB" }) => {
@@ -103,6 +114,7 @@ export function initSocketServer(httpServer: HttpServer): void {
         if (teamCount >= maxPerTeam && player.team !== team) { socket.emit("error", "هذا الفريق ممتلئ"); return; }
         player.team = team;
         io.to(roomCode).emit("playersUpdate", room.players);
+        maybeStartGame(roomCode);
       }
     });
 
@@ -113,9 +125,7 @@ export function initSocketServer(httpServer: HttpServer): void {
       if (player) {
         player.isReady = true;
         io.to(roomCode).emit("playersUpdate", room.players);
-        const playersNeeded = room.gameMode === "2v2" ? 4 : 2;
-        const allReady = room.players.length >= playersNeeded && room.players.every((p) => p.isReady);
-        if (allReady) startGame(roomCode);
+        maybeStartGame(roomCode);
       }
     });
 
@@ -135,6 +145,7 @@ export function initSocketServer(httpServer: HttpServer): void {
       room.currentRound = 1;
       room.teamAScore = 0;
       room.teamBScore = 0;
+      room.roundData = null;
       io.to(roomCode).emit("gameStarted", { room });
       loadRound(roomCode, 1);
     }
