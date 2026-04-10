@@ -155,7 +155,13 @@ export function initSocketServer(httpServer: HttpServer): void {
       room.teamBScore = 0;
       room.roundData = null;
       room.gameStarted = true;
-      io.to(roomCode).emit("gameStarted", { room });
+        io.to(roomCode).emit("gameStarted", {
+          gameMode: room.gameMode,
+          teamAName: room.teamAName,
+          teamBName: room.teamBName,
+          teamAColor: room.teamAColor,
+          teamBColor: room.teamBColor,
+        });
       loadRound(roomCode, 1);
     }
 
@@ -416,6 +422,9 @@ export function initSocketServer(httpServer: HttpServer): void {
       io.to(roomCode).emit("gameEnd", {
         finalScores: { teamA: room.teamAScore, teamB: room.teamBScore },
         winner,
+        winnerName,
+        teamAName: room.teamAName,
+        teamBName: room.teamBName,
       });
     }
 
