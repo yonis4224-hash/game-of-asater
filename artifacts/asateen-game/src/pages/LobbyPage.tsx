@@ -72,7 +72,7 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined }: LobbyPageProp
       >
         <div className="text-center mb-8">
           <motion.h1
-            className="text-5xl font-bold mb-2"
+            className="mb-2 font-bold text-[39px]"
             style={{ background: "linear-gradient(45deg, #FFD700, #FF8C00)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
             animate={{ textShadow: ["0 0 10px rgba(255,215,0,0.5)", "0 0 30px rgba(255,215,0,0.9)", "0 0 10px rgba(255,215,0,0.5)"] }}
             transition={{ duration: 2, repeat: Infinity }}
