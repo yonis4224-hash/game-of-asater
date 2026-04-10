@@ -26,6 +26,8 @@ export default function App() {
     }
     document.documentElement.dir = "rtl";
     document.documentElement.lang = "ar";
+    // Pre-connect socket eagerly so it's ready when the user clicks
+    getSocket();
   }, []);
 
   const handleRoomCreated = (roomCode: string, playerId: string, isCreator: boolean) => {

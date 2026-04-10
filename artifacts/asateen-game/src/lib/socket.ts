@@ -7,9 +7,19 @@ export function getSocket(): Socket {
     socket = io({
       path: "/socket.io",
       transports: ["websocket", "polling"],
+      autoConnect: true,
     });
   }
   return socket;
+}
+
+export function emitWhenConnected(event: string, ...args: unknown[]): void {
+  const s = getSocket();
+  if (s.connected) {
+    s.emit(event, ...args);
+  } else {
+    s.once("connect", () => s.emit(event, ...args));
+  }
 }
 
 export function disconnectSocket(): void {

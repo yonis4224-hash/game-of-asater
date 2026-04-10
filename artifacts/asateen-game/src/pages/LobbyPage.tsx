@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { getSocket } from "@/lib/socket";
+import { getSocket, emitWhenConnected } from "@/lib/socket";
 import type { RoomSettings } from "@/types/game";
 
 interface LobbyPageProps {
@@ -36,7 +36,7 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined }: LobbyPageProp
       setLoading(false);
       setError(msg);
     });
-    socket.emit("createRoom", { playerName: playerName.trim(), settings: defaultSettings });
+    emitWhenConnected("createRoom", { playerName: playerName.trim(), settings: defaultSettings });
   };
 
   const handleJoin = () => {
@@ -44,16 +44,23 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined }: LobbyPageProp
     setLoading(true);
     setError("");
     const socket = getSocket();
-    socket.emit("checkRoom", roomCode.trim().toUpperCase(), (res: { exists: boolean; playerCount: number }) => {
-      if (!res.exists) { setLoading(false); setError("الغرفة غير موجودة"); return; }
-      if (res.playerCount >= 4) { setLoading(false); setError("الغرفة ممتلئة"); return; }
-      socket.once("roomJoined", (data: { roomCode: string; playerId: string; isCreator: boolean }) => {
-        setLoading(false);
-        onRoomJoined(data.roomCode, data.playerId, data.isCreator);
+    const doJoin = () => {
+      socket.emit("checkRoom", roomCode.trim().toUpperCase(), (res: { exists: boolean; playerCount: number }) => {
+        if (!res.exists) { setLoading(false); setError("الغرفة غير موجودة"); return; }
+        if (res.playerCount >= 4) { setLoading(false); setError("الغرفة ممتلئة"); return; }
+        socket.once("roomJoined", (data: { roomCode: string; playerId: string; isCreator: boolean }) => {
+          setLoading(false);
+          onRoomJoined(data.roomCode, data.playerId, data.isCreator);
+        });
+        socket.once("error", (msg: string) => { setLoading(false); setError(msg); });
+        socket.emit("joinRoom", { roomCode: roomCode.trim().toUpperCase(), playerName: playerName.trim() });
       });
-      socket.once("error", (msg: string) => { setLoading(false); setError(msg); });
-      socket.emit("joinRoom", { roomCode: roomCode.trim().toUpperCase(), playerName: playerName.trim() });
-    });
+    };
+    if (socket.connected) {
+      doJoin();
+    } else {
+      socket.once("connect", doJoin);
+    }
   };
 
   return (
