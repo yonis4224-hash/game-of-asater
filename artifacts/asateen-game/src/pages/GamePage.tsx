@@ -57,8 +57,8 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
       setPhase({ type: "sports_question", question: data.question, qNum: data.questionNumber, total: data.totalQuestions, answered: false });
     });
 
-    socket.on("showIronManQuestion", (data: { emojis: string; hint: string; questionNumber: number; totalQuestions: number }) => {
-      setPhase({ type: "sports_question", question: { q: data.hint, options: [data.emojis, data.hint], correct: 0 }, qNum: data.questionNumber, total: data.totalQuestions, answered: false });
+    socket.on("showIronManQuestion", (data: { question: SportsQuestion; questionNumber: number; totalQuestions: number }) => {
+      setPhase({ type: "sports_question", question: data.question, qNum: data.questionNumber, total: data.totalQuestions, answered: false });
     });
 
     socket.on("teamAnswered", (data: { team: Team; isCorrect: boolean }) => {
