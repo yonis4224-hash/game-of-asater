@@ -17,7 +17,9 @@ function maybeStartGame(roomCode: string): void {
   if (!room) return;
   const playersNeeded = room.gameMode === "2v2" ? 4 : 2;
   const allReady = room.players.length >= playersNeeded && room.players.every((p) => p.isReady);
+  if (room.gameStarted) return;
   if (allReady && room.currentRound === 1 && !room.roundData) {
+    room.gameStarted = true;
     startGame(roomCode);
   }
 }
@@ -138,6 +140,7 @@ export function initSocketServer(httpServer: HttpServer): void {
       const room = getRoom(roomCode);
       if (!room || room.creatorId !== socket.id) return;
       if (room.players.length >= 2) {
+        room.gameStarted = true;
         startGame(roomCode);
       } else {
         socket.emit("error", "يجب وجود لاعبين على الأقل لبدء اللعبة");
@@ -151,6 +154,7 @@ export function initSocketServer(httpServer: HttpServer): void {
       room.teamAScore = 0;
       room.teamBScore = 0;
       room.roundData = null;
+      room.gameStarted = true;
       io.to(roomCode).emit("gameStarted", { room });
       loadRound(roomCode, 1);
     }
