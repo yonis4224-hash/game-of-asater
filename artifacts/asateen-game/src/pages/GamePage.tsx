@@ -57,10 +57,6 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
       setPhase({ type: "sports_question", question: data.question, qNum: data.questionNumber, total: data.totalQuestions, answered: false });
     });
 
-    socket.on("showIronManQuestion", (data: { question: SportsQuestion; questionNumber: number; totalQuestions: number }) => {
-      setPhase({ type: "sports_question", question: data.question, qNum: data.questionNumber, total: data.totalQuestions, answered: false });
-    });
-
     socket.on("teamAnswered", (data: { team: Team; isCorrect: boolean }) => {
       showToast(`${data.team === "teamA" ? "فريق النور" : "فريق الظلام"} ${data.isCorrect ? "أجاب صحيح!" : "أجاب خطأ"}`);
     });
@@ -104,18 +100,6 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
       setPhase({ type: "spy_guess", clueA: data.clueA, clueB: data.clueB, guessed: false });
     });
 
-    socket.on("showSportsQuestion", (data: { question: SportsQuestion; questionNumber: number; totalQuestions: number }) => {
-      setPhase({ type: "sports_question", question: data.question, qNum: data.questionNumber, total: data.totalQuestions, answered: false });
-    });
-
-    socket.on("showGamingQuestion", (data: { question: SportsQuestion; questionNumber: number; totalQuestions: number }) => {
-      setPhase({ type: "sports_question", question: data.question, qNum: data.questionNumber, total: data.totalQuestions, answered: false });
-    });
-
-    socket.on("showSeriesQuestion", (data: { question: SportsQuestion; questionNumber: number; totalQuestions: number }) => {
-      setPhase({ type: "sports_question", question: data.question, qNum: data.questionNumber, total: data.totalQuestions, answered: false });
-    });
-
     socket.on("spyGuessResult", (data: { team: Team; isCorrect: boolean; correctWord: string }) => {
       showToast(data.isCorrect ? `${data.team === "teamA" ? "فريق النور" : "فريق الظلام"} خمّن صحيح!` : `خطأ! الكلمة: ${data.correctWord}`);
     });
@@ -131,9 +115,8 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
     });
 
     return () => {
-      ["roundLoaded","showQuestion","showIronManQuestion","teamAnswered","startDrawing","drawingSubmitted","showGuesses","guessResult",
-       "showWeirdQuestion","weirdTeamAnswered","startSpyMaster","spyClueSubmitted","showSpyGuesses","spyGuessResult",
-       "showSportsQuestion","showGamingQuestion","showSeriesQuestion","roundEnd","gameEnd"]
+      ["roundLoaded","showQuestion","teamAnswered","startDrawing","drawingSubmitted","showGuesses","guessResult",
+       "showWeirdQuestion","weirdTeamAnswered","startSpyMaster","spyClueSubmitted","showSpyGuesses","spyGuessResult","roundEnd","gameEnd"]
         .forEach((ev) => socket.off(ev));
     };
   }, [showToast]);

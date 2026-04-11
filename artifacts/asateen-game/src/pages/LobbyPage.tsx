@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { getSocket, emitWhenConnected } from "@/lib/socket";
+import { getSocket } from "@/lib/socket";
 import type { RoomSettings } from "@/types/game";
 
 interface LobbyPageProps {
@@ -36,7 +36,7 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined }: LobbyPageProp
       setLoading(false);
       setError(msg);
     });
-    emitWhenConnected("createRoom", { playerName: playerName.trim(), settings: defaultSettings });
+    socket.emit("createRoom", { playerName: playerName.trim(), settings: defaultSettings });
   };
 
   const handleJoin = () => {
@@ -44,23 +44,16 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined }: LobbyPageProp
     setLoading(true);
     setError("");
     const socket = getSocket();
-    const doJoin = () => {
-      socket.emit("checkRoom", roomCode.trim().toUpperCase(), (res: { exists: boolean; playerCount: number }) => {
-        if (!res.exists) { setLoading(false); setError("الغرفة غير موجودة"); return; }
-        if (res.playerCount >= 4) { setLoading(false); setError("الغرفة ممتلئة"); return; }
-        socket.once("roomJoined", (data: { roomCode: string; playerId: string; isCreator: boolean }) => {
-          setLoading(false);
-          onRoomJoined(data.roomCode, data.playerId, data.isCreator);
-        });
-        socket.once("error", (msg: string) => { setLoading(false); setError(msg); });
-        socket.emit("joinRoom", { roomCode: roomCode.trim().toUpperCase(), playerName: playerName.trim() });
+    socket.emit("checkRoom", roomCode.trim().toUpperCase(), (res: { exists: boolean; playerCount: number }) => {
+      if (!res.exists) { setLoading(false); setError("الغرفة غير موجودة"); return; }
+      if (res.playerCount >= 4) { setLoading(false); setError("الغرفة ممتلئة"); return; }
+      socket.once("roomJoined", (data: { roomCode: string; playerId: string; isCreator: boolean }) => {
+        setLoading(false);
+        onRoomJoined(data.roomCode, data.playerId, data.isCreator);
       });
-    };
-    if (socket.connected) {
-      doJoin();
-    } else {
-      socket.once("connect", doJoin);
-    }
+      socket.once("error", (msg: string) => { setLoading(false); setError(msg); });
+      socket.emit("joinRoom", { roomCode: roomCode.trim().toUpperCase(), playerName: playerName.trim() });
+    });
   };
 
   return (
@@ -72,7 +65,7 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined }: LobbyPageProp
       >
         <div className="text-center mb-8">
           <motion.h1
-            className="mb-2 font-bold text-[39px]"
+            className="text-5xl font-bold mb-2"
             style={{ background: "linear-gradient(45deg, #FFD700, #FF8C00)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
             animate={{ textShadow: ["0 0 10px rgba(255,215,0,0.5)", "0 0 30px rgba(255,215,0,0.9)", "0 0 10px rgba(255,215,0,0.5)"] }}
             transition={{ duration: 2, repeat: Infinity }}

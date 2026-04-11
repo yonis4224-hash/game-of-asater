@@ -12,26 +12,6 @@ import {
 } from "./questions";
 import type { Round1Data, Round2Data, Round3Data, Round4Data } from "./types";
 
-function maybeStartGame(roomCode: string): void {
-  const room = getRoom(roomCode);
-  if (!room) return;
-  const playersNeeded = room.gameMode === "2v2" ? 4 : 2;
-  const allReady = room.players.length >= playersNeeded && room.players.every((p) => p.isReady);
-  if (room.gameStarted) return;
-  if (allReady && room.currentRound === 1 && !room.roundData) {
-    room.gameStarted = true;
-    startGame(roomCode);
-  }
-}
-
-function syncRoomState(roomCode: string, io: SocketServer): void {
-  const room = getRoom(roomCode);
-  if (!room) return;
-  io.to(roomCode).emit("playersUpdate", room.players);
-  io.to(roomCode).emit("roomSettings", room.settings);
-  maybeStartGame(roomCode);
-}
-
 export function initSocketServer(httpServer: HttpServer): void {
   const io = new SocketServer(httpServer, {
     cors: { origin: "*", methods: ["GET", "POST"] },
@@ -49,7 +29,9 @@ export function initSocketServer(httpServer: HttpServer): void {
       socket.join(roomCode);
       playerRoomMap.set(socket.id, roomCode);
       socket.emit("roomCreated", { roomCode, playerId: socket.id, isCreator: true });
-      syncRoomState(roomCode, io);
+      const room = getRoom(roomCode)!;
+      io.to(roomCode).emit("playersUpdate", room.players);
+      io.to(roomCode).emit("roomSettings", room.settings);
     });
 
     socket.on("joinRoom", ({ roomCode, playerName }: { roomCode: string; playerName: string }) => {
@@ -61,7 +43,8 @@ export function initSocketServer(httpServer: HttpServer): void {
       socket.join(roomCode);
       playerRoomMap.set(socket.id, roomCode);
       socket.emit("roomJoined", { roomCode, playerId: socket.id, isCreator: false });
-      syncRoomState(roomCode, io);
+      io.to(roomCode).emit("playersUpdate", room.players);
+      io.to(roomCode).emit("roomSettings", room.settings);
     });
 
     socket.on("checkRoom", (roomCode: string, callback: (r: { exists: boolean; playerCount: number }) => void) => {
@@ -108,7 +91,6 @@ export function initSocketServer(httpServer: HttpServer): void {
       room.gameMode = mode;
       io.to(roomCode).emit("gameModeChanged", mode);
       io.to(roomCode).emit("systemMessage", `تم تغيير وضع اللعبة إلى ${mode === "2v2" ? "2 ضد 2" : "1 ضد 1"}`);
-      maybeStartGame(roomCode);
     });
 
     socket.on("chooseTeam", ({ roomCode, team }: { roomCode: string; team: "teamA" | "teamB" }) => {
@@ -121,7 +103,6 @@ export function initSocketServer(httpServer: HttpServer): void {
         if (teamCount >= maxPerTeam && player.team !== team) { socket.emit("error", "هذا الفريق ممتلئ"); return; }
         player.team = team;
         io.to(roomCode).emit("playersUpdate", room.players);
-        maybeStartGame(roomCode);
       }
     });
 
@@ -132,7 +113,9 @@ export function initSocketServer(httpServer: HttpServer): void {
       if (player) {
         player.isReady = true;
         io.to(roomCode).emit("playersUpdate", room.players);
-        maybeStartGame(roomCode);
+        const playersNeeded = room.gameMode === "2v2" ? 4 : 2;
+        const allReady = room.players.length >= playersNeeded && room.players.every((p) => p.isReady);
+        if (allReady) startGame(roomCode);
       }
     });
 
@@ -140,7 +123,6 @@ export function initSocketServer(httpServer: HttpServer): void {
       const room = getRoom(roomCode);
       if (!room || room.creatorId !== socket.id) return;
       if (room.players.length >= 2) {
-        room.gameStarted = true;
         startGame(roomCode);
       } else {
         socket.emit("error", "يجب وجود لاعبين على الأقل لبدء اللعبة");
@@ -153,15 +135,7 @@ export function initSocketServer(httpServer: HttpServer): void {
       room.currentRound = 1;
       room.teamAScore = 0;
       room.teamBScore = 0;
-      room.roundData = null;
-      room.gameStarted = true;
-        io.to(roomCode).emit("gameStarted", {
-          gameMode: room.gameMode,
-          teamAName: room.teamAName,
-          teamBName: room.teamBName,
-          teamAColor: room.teamAColor,
-          teamBColor: room.teamBColor,
-        });
+      io.to(roomCode).emit("gameStarted", { room });
       loadRound(roomCode, 1);
     }
 
@@ -422,9 +396,6 @@ export function initSocketServer(httpServer: HttpServer): void {
       io.to(roomCode).emit("gameEnd", {
         finalScores: { teamA: room.teamAScore, teamB: room.teamBScore },
         winner,
-        winnerName,
-        teamAName: room.teamAName,
-        teamBName: room.teamBName,
       });
     }
 

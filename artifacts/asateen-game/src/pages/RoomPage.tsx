@@ -99,9 +99,6 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
   const teamAPlayers = players.filter((p) => p.team === "teamA");
   const teamBPlayers = players.filter((p) => p.team === "teamB");
   const noTeamPlayers = players.filter((p) => !p.team);
-  const playersNeeded = gameMode === "2v2" ? 4 : 2;
-  const readyCount = players.filter((p) => p.isReady).length;
-  const allReady = players.length >= playersNeeded && players.every((p) => p.isReady);
 
   return (
     <div className="min-h-screen p-4" style={{ background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)" }}>
@@ -217,7 +214,7 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
 
           {isReady && (
             <div className="w-full py-4 rounded-2xl text-center text-white/60 bg-white/5 mb-3">
-              {allReady ? "🎮 الجميع جاهز! سيبدأ قريباً..." : "في انتظار بقية اللاعبين..."}
+              في انتظار بقية اللاعبين...
             </div>
           )}
 
