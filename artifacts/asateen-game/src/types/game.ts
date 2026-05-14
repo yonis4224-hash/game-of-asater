@@ -12,7 +12,10 @@ export interface RoomSettings {
   triviaPoints: number;
   spyPoints: number;
   guessTimeLimit: number;
+  questionTimeLimit?: number;
 }
+
+export type GameMode = "4v4" | "1v1";
 
 export interface TriviaQuestion {
   q: string;

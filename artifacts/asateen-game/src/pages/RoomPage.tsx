@@ -19,7 +19,7 @@ interface TeamProfile {
 
 export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreator, onGameStart, onKicked, onNewCreator }: RoomPageProps) {
   const [players, setPlayers] = useState<Player[]>([]);
-  const [settings, setSettings] = useState<RoomSettings>({ pointsPerCorrect: 10, drawingPoints: 20, triviaPoints: 10, spyPoints: 30, guessTimeLimit: 15 });
+  const [settings, setSettings] = useState<RoomSettings>({ pointsPerCorrect: 10, drawingPoints: 20, triviaPoints: 10, spyPoints: 30, guessTimeLimit: 15, questionTimeLimit: 20 });
   const [isCreator, setIsCreator] = useState(initialIsCreator);
   const [gameMode, setGameMode] = useState<"4v4" | "1v1">("4v4");
   const [myTeam, setMyTeam] = useState<Team | null>(null);
@@ -320,10 +320,12 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
                   { key: "drawingPoints", label: "نقاط الجولة 2" },
                   { key: "triviaPoints", label: "نقاط الجولة 3" },
                   { key: "spyPoints", label: "نقاط الجولة 4" },
+                  { key: "guessTimeLimit", label: "وقت التخمين (ثانية)" },
+                  { key: "questionTimeLimit", label: "وقت الأسئلة (ثانية)" },
                 ] as const).map(({ key, label }) => (
                   <div key={key}>
                     <label className="text-white/60 text-xs block mb-1">{label}</label>
-                    <input type="number" value={settings[key]}
+                    <input type="number" value={settings[key] ?? 0}
                       onChange={(e) => setSettings((s) => ({ ...s, [key]: parseInt(e.target.value) || 0 }))}
                       className="w-full px-3 py-2 rounded-xl text-white text-center text-sm"
                       style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,215,0,0.3)" }}
