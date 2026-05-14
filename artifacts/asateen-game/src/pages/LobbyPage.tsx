@@ -45,10 +45,10 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined, initialRoomCode
     setLoading(true);
     setError("");
     const socket = getSocket();
+
     const doJoin = () => {
       socket.emit("checkRoom", roomCode.trim().toUpperCase(), (res: { exists: boolean; playerCount: number }) => {
-        if (!res.exists) { setLoading(false); setError("الغرفة غير موجودة"); return; }
-        if (res.playerCount >= 4) { setLoading(false); setError("الغرفة ممتلئة"); return; }
+        if (!res.exists) { setLoading(false); setError("الغرفة غير موجودة — تأكد من الكود وأن منشئ الغرفة لا يزال متصلاً"); return; }
         socket.once("roomJoined", (data: { roomCode: string; playerId: string; isCreator: boolean }) => {
           setLoading(false);
           onRoomJoined(data.roomCode, data.playerId, data.isCreator);
@@ -57,10 +57,20 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined, initialRoomCode
         socket.emit("joinRoom", { roomCode: roomCode.trim().toUpperCase(), playerName: playerName.trim() });
       });
     };
+
     if (socket.connected) {
       doJoin();
     } else {
-      socket.once("connect", doJoin);
+      // Wait up to 6 seconds for the socket to connect, then show a clear error
+      const timeout = setTimeout(() => {
+        socket.off("connect", doJoin);
+        setLoading(false);
+        setError("تعذر الاتصال بالخادم — تأكد من اتصالك بالإنترنت وأعد المحاولة");
+      }, 6000);
+      socket.once("connect", () => {
+        clearTimeout(timeout);
+        doJoin();
+      });
     }
   };
 

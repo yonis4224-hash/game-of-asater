@@ -45,7 +45,7 @@ try {
 
   if (frontendDist) {
     app.use(express.static(frontendDist));
-    app.get("*", (_req, res) => res.sendFile(path.join(frontendDist, "index.html")));
+    app.get("/{*path}", (_req, res) => res.sendFile(path.join(frontendDist!, "index.html")));
   }
 } catch (err) {
   logger.warn({ err }, "Could not enable static frontend serving");

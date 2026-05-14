@@ -40,6 +40,7 @@ export function initSocketServer(httpServer: HttpServer): void {
   const playerRoomMap = new Map<string, string>();
   const suggestionTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const choiceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const roomDeletionTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   function emitRoomMeta(roomCode: string) {
     const room = getRoom(roomCode);
@@ -58,7 +59,7 @@ export function initSocketServer(httpServer: HttpServer): void {
     io.to(roomCode).emit("playersUpdate", room.players);
   }
 
-  function validateRoomForStart(roomCode: string): string | null {
+  function validateTeamSetup(roomCode: string): string | null {
     const room = getRoom(roomCode);
     if (!room) return "الغرفة غير موجودة";
 
@@ -67,8 +68,8 @@ export function initSocketServer(httpServer: HttpServer): void {
 
     if (room.players.length !== requiredPlayers) {
       return room.gameMode === "2v2"
-        ? "نمط 2 ضد 2 يحتاج أربعة لاعبين قبل البدء."
-        : "نمط 1 ضد 1 يحتاج لاعبين اثنين فقط قبل البدء.";
+        ? `نمط 2 ضد 2 يحتاج أربعة لاعبين قبل البدء. (${room.players.length}/${requiredPlayers})`
+        : `نمط 1 ضد 1 يحتاج لاعبين اثنين فقط قبل البدء. (${room.players.length}/${requiredPlayers})`;
     }
 
     for (const team of TEAM_KEYS) {
@@ -79,8 +80,14 @@ export function initSocketServer(httpServer: HttpServer): void {
     }
 
     if (room.players.some((player) => !player.team)) return "يجب توزيع جميع اللاعبين على الفرق قبل البدء.";
-    if (room.players.some((player) => !player.isReady)) return "يجب أن يعلن جميع اللاعبين جاهزيتهم قبل البدء.";
+    return null;
+  }
 
+  function validateRoomForStart(roomCode: string): string | null {
+    const teamError = validateTeamSetup(roomCode);
+    if (teamError) return teamError;
+    const room = getRoom(roomCode)!;
+    if (room.players.some((player) => !player.isReady)) return "يجب أن يعلن جميع اللاعبين جاهزيتهم قبل البدء.";
     return null;
   }
 
@@ -498,8 +505,9 @@ export function initSocketServer(httpServer: HttpServer): void {
 
     socket.on("joinRoom", ({ roomCode, playerName }: { roomCode: string; playerName: string }) => {
       const room = getRoom(roomCode);
-      if (!room) { socket.emit("error", "الغرفة غير موجودة"); return; }
-      if (room.players.length >= 4) { socket.emit("error", "الغرفة ممتلئة"); return; }
+      if (!room) { socket.emit("error", "الغرفة غير موجودة — تأكد من الكود وأن منشئ الغرفة لا يزال متصلاً"); return; }
+      const maxPlayers = getPlayersNeeded(room.gameMode);
+      if (room.players.length >= maxPlayers) { socket.emit("error", `الغرفة ممتلئة (${maxPlayers} لاعبين في وضع ${room.gameMode})`); return; }
 
       room.players.push({ id: socket.id, name: playerName, team: null, isReady: false, isCreator: false });
       socket.join(roomCode);
@@ -608,8 +616,11 @@ export function initSocketServer(httpServer: HttpServer): void {
     socket.on("forceStartGame", ({ roomCode }: { roomCode: string }) => {
       const room = getRoom(roomCode);
       if (!room || room.creatorId !== socket.id) return;
-      const reason = validateRoomForStart(roomCode);
+      const reason = validateTeamSetup(roomCode);
       if (reason) { socket.emit("error", reason); return; }
+      // mark all players as ready so startGame validation passes
+      room.players.forEach((p) => (p.isReady = true));
+      io.to(roomCode).emit("playersUpdate", room.players);
       startGame(roomCode);
     });
 
@@ -783,8 +794,24 @@ export function initSocketServer(httpServer: HttpServer): void {
       io.to(roomCode).emit("systemMessage", `غادر ${left.name} الغرفة`);
 
       if (room.players.length === 0) {
-        deleteRoom(roomCode);
+        // Give a 60-second grace period before deleting the empty room,
+        // so friends can still join if creator briefly disconnects.
+        const timer = setTimeout(() => {
+          const r = getRoom(roomCode);
+          if (r && r.players.length === 0) {
+            deleteRoom(roomCode);
+            logger.info({ roomCode }, "Room deleted after grace period (empty)");
+          }
+          roomDeletionTimers.delete(roomCode);
+        }, 60_000);
+        roomDeletionTimers.set(roomCode, timer);
         return;
+      }
+
+      // Cancel any pending deletion if someone is still in the room
+      if (roomDeletionTimers.has(roomCode)) {
+        clearTimeout(roomDeletionTimers.get(roomCode)!);
+        roomDeletionTimers.delete(roomCode);
       }
 
       if (room.creatorId === socket.id && room.players.length > 0) {
