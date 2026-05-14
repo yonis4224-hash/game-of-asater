@@ -17,12 +17,13 @@ interface GameState {
 export default function App() {
   const [screen, setScreen] = useState<Screen>("lobby");
   const [gameState, setGameState] = useState<GameState>({ roomCode: "", playerId: "", isCreator: false, myTeam: null });
+  const [initialRoomCode, setInitialRoomCode] = useState<string>("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get("room");
     if (roomParam) {
-      setScreen("lobby");
+      setInitialRoomCode(roomParam.toUpperCase());
     }
     document.documentElement.dir = "rtl";
     document.documentElement.lang = "ar";
@@ -62,7 +63,7 @@ export default function App() {
   };
 
   if (screen === "lobby") {
-    return <LobbyPage onRoomCreated={handleRoomCreated} onRoomJoined={handleRoomJoined} />;
+    return <LobbyPage onRoomCreated={handleRoomCreated} onRoomJoined={handleRoomJoined} initialRoomCode={initialRoomCode} />;
   }
 
   if (screen === "room") {

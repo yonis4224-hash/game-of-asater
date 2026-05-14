@@ -90,8 +90,29 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
   };
 
   const handleCopyLink = () => {
-    const url = `${window.location.origin}?room=${roomCode}`;
-    navigator.clipboard.writeText(url);
+    const base = window.location.origin + (window.location.pathname !== "/" ? window.location.pathname : "");
+    const url = `${base}?room=${roomCode}`;
+    navigator.clipboard.writeText(url).catch(() => {
+      const ta = document.createElement("textarea");
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    });
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(roomCode).catch(() => {
+      const ta = document.createElement("textarea");
+      ta.value = roomCode;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -107,14 +128,27 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
     <div className="min-h-screen p-4" style={{ background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)" }}>
       <div className="max-w-2xl mx-auto space-y-4">
         <div className="rounded-3xl p-6" style={{ background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,215,0,0.3)" }}>
-          <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-            <h2 className="text-white text-xl font-bold">
-              الغرفة: <span style={{ color: "#FFD700" }}>{roomCode}</span>
-            </h2>
-            <button onClick={handleCopyLink} className="px-4 py-2 rounded-xl text-sm text-white transition-all"
-              style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)" }}>
-              {copied ? "تم النسخ!" : "نسخ الرابط"}
-            </button>
+          <div className="mb-4">
+            <p className="text-white/60 text-sm text-center mb-1">كود الغرفة — شاركه مع أصدقائك</p>
+            <div className="flex items-center justify-center gap-3 mb-3">
+              <button
+                onClick={handleCopyCode}
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl font-mono text-3xl font-bold tracking-widest transition-all active:scale-95"
+                style={{ background: "rgba(255,215,0,0.15)", border: "2px solid rgba(255,215,0,0.7)", color: "#FFD700", letterSpacing: "0.2em" }}
+                title="انقر للنسخ"
+              >
+                {roomCode}
+                <span className="text-base font-normal" style={{ color: "rgba(255,215,0,0.6)" }}>
+                  {copied ? "✓" : "📋"}
+                </span>
+              </button>
+            </div>
+            <div className="flex gap-2 justify-center">
+              <button onClick={handleCopyLink} className="px-4 py-2 rounded-xl text-sm text-white transition-all active:scale-95"
+                style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)" }}>
+                {copied ? "✓ تم النسخ!" : "🔗 نسخ الرابط"}
+              </button>
+            </div>
           </div>
 
           <AnimatePresence>

@@ -6,12 +6,13 @@ import type { RoomSettings } from "@/types/game";
 interface LobbyPageProps {
   onRoomCreated: (roomCode: string, playerId: string, isCreator: boolean) => void;
   onRoomJoined: (roomCode: string, playerId: string, isCreator: boolean) => void;
+  initialRoomCode?: string;
 }
 
-export default function LobbyPage({ onRoomCreated, onRoomJoined }: LobbyPageProps) {
-  const [mode, setMode] = useState<"none" | "create" | "join">("none");
+export default function LobbyPage({ onRoomCreated, onRoomJoined, initialRoomCode = "" }: LobbyPageProps) {
+  const [mode, setMode] = useState<"none" | "create" | "join">(initialRoomCode ? "join" : "none");
   const [playerName, setPlayerName] = useState("");
-  const [roomCode, setRoomCode] = useState("");
+  const [roomCode, setRoomCode] = useState(initialRoomCode);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
