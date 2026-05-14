@@ -32,6 +32,11 @@ export function createRoom(
     teamAScore: 0,
     teamBScore: 0,
     gameMode: "2v2",
+    gameStarted: false,
+    teams: {
+      teamA: { name: "فريق النور", color: "#22c55e" },
+      teamB: { name: "فريق الظلام", color: "#f97316" },
+    },
     roundData: null,
     settings: { ...defaultSettings, ...(settings ?? {}) },
   };

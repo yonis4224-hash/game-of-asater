@@ -104,7 +104,7 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined }: LobbyPageProp
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
               <input
                 className="w-full px-4 py-3 rounded-2xl text-white text-right outline-none focus:ring-2"
-                style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,215,0,0.5)", focusRingColor: "#FFD700" }}
+                style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,215,0,0.5)" }}
                 placeholder="اسمك"
                 value={playerName}
                 onChange={(e) => setPlayerName(e.target.value)}

@@ -1,7 +1,14 @@
+export type Team = "teamA" | "teamB";
+
+export interface TeamProfile {
+  name: string;
+  color: string;
+}
+
 export interface Player {
   id: string;
   name: string;
-  team: "teamA" | "teamB" | null;
+  team: Team | null;
   isReady: boolean;
   isCreator: boolean;
 }
@@ -25,6 +32,7 @@ export interface Room {
   gameStarted: boolean;
   roundData: RoundData | null;
   settings: RoomSettings;
+  teams: Record<Team, TeamProfile>;
 }
 
 export type RoundData = Round1Data | Round2Data | Round3Data | Round4Data;
@@ -33,7 +41,9 @@ export interface Round1Data {
   type: "round1";
   questions: SportsQuestion[];
   currentIndex: number;
-  answers: { teamA: boolean | null; teamB: boolean | null };
+  suggested: { teamA: string | null; teamB: string | null };
+  options: string[];
+  choices: { teamA: number | null; teamB: number | null };
   scores: { teamA: number; teamB: number };
 }
 
