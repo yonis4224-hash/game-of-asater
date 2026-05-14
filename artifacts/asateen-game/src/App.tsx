@@ -7,16 +7,28 @@ import { getSocket } from "@/lib/socket";
 
 type Screen = "lobby" | "room" | "game";
 
+interface TeamProfile {
+  name: string;
+  color: string;
+}
+
 interface GameState {
   roomCode: string;
   playerId: string;
   isCreator: boolean;
   myTeam: Team | null;
+  teams: Record<Team, TeamProfile>;
 }
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("lobby");
-  const [gameState, setGameState] = useState<GameState>({ roomCode: "", playerId: "", isCreator: false, myTeam: null });
+  const [gameState, setGameState] = useState<GameState>({
+    roomCode: "", playerId: "", isCreator: false, myTeam: null,
+    teams: {
+      teamA: { name: "\u0627\u0644\u0623\u0631\u0633\u0646\u0627\u0644", color: "#ef4444" },
+      teamB: { name: "\u0645\u0627\u0646\u0633\u064a\u062a\u064a", color: "#3b82f6" },
+    },
+  });
   const [initialRoomCode, setInitialRoomCode] = useState<string>("");
 
   useEffect(() => {
@@ -32,12 +44,12 @@ export default function App() {
   }, []);
 
   const handleRoomCreated = (roomCode: string, playerId: string, isCreator: boolean) => {
-    setGameState({ roomCode, playerId, isCreator, myTeam: null });
+    setGameState((s) => ({ ...s, roomCode, playerId, isCreator, myTeam: null }));
     setScreen("room");
   };
 
   const handleRoomJoined = (roomCode: string, playerId: string, isCreator: boolean) => {
-    setGameState({ roomCode, playerId, isCreator, myTeam: null });
+    setGameState((s) => ({ ...s, roomCode, playerId, isCreator, myTeam: null }));
     setScreen("room");
   };
 
@@ -45,15 +57,23 @@ export default function App() {
     setScreen("game");
   };
 
+  useEffect(() => {
+    const socket = getSocket();
+    socket.on("roomMeta", (meta: { teams: Record<Team, { name: string; color: string }> }) => {
+      setGameState((s) => ({ ...s, teams: meta.teams }));
+    });
+    return () => { socket.off("roomMeta"); };
+  }, []);
+
   const handleKicked = () => {
     getSocket().disconnect();
-    setGameState({ roomCode: "", playerId: "", isCreator: false, myTeam: null });
+    setGameState({ roomCode: "", playerId: "", isCreator: false, myTeam: null, teams: gameState.teams });
     setScreen("lobby");
     window.history.replaceState({}, "", window.location.pathname);
   };
 
   const handleGameOver = () => {
-    setGameState({ roomCode: "", playerId: "", isCreator: false, myTeam: null });
+    setGameState({ roomCode: "", playerId: "", isCreator: false, myTeam: null, teams: gameState.teams });
     setScreen("lobby");
     window.history.replaceState({}, "", window.location.pathname);
   };
@@ -84,6 +104,7 @@ export default function App() {
       <GamePage
         roomCode={gameState.roomCode}
         myTeam={gameState.myTeam}
+        teamProfiles={gameState.teams}
         onGameOver={handleGameOver}
       />
     );

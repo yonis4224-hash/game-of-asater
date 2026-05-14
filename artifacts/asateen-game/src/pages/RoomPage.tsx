@@ -12,6 +12,11 @@ interface RoomPageProps {
   onNewCreator: () => void;
 }
 
+interface TeamProfile {
+  name: string;
+  color: string;
+}
+
 export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreator, onGameStart, onKicked, onNewCreator }: RoomPageProps) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [settings, setSettings] = useState<RoomSettings>({ pointsPerCorrect: 10, drawingPoints: 20, triviaPoints: 10, spyPoints: 30, guessTimeLimit: 15 });
@@ -21,6 +26,10 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
   const [isReady, setIsReady] = useState(false);
   const [systemMsg, setSystemMsg] = useState("");
   const [copied, setCopied] = useState(false);
+  const [teamProfiles, setTeamProfiles] = useState<Record<Team, TeamProfile>>({
+    teamA: { name: "\u0627\u0644\u0623\u0631\u0633\u0646\u0627\u0644", color: "#ef4444" },
+    teamB: { name: "\u0645\u0627\u0646\u0633\u064a\u062a\u064a", color: "#3b82f6" },
+  });
 
   useEffect(() => {
     const socket = getSocket();
@@ -32,6 +41,9 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
     });
     socket.on("roomSettings", (s: RoomSettings) => setSettings(s));
     socket.on("gameModeChanged", (mode: "4v4" | "1v1") => setGameMode(mode));
+    socket.on("roomMeta", (meta: { gameMode: string; settings: RoomSettings; teams: Record<Team, TeamProfile> }) => {
+      setTeamProfiles(meta.teams);
+    });
     socket.on("systemMessage", (msg: string) => {
       setSystemMsg(msg);
       setTimeout(() => setSystemMsg(""), 3000);
@@ -49,6 +61,7 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
       socket.off("playersUpdate");
       socket.off("roomSettings");
       socket.off("gameModeChanged");
+      socket.off("roomMeta");
       socket.off("systemMessage");
       socket.off("gameStarted");
       socket.off("kicked");
@@ -162,8 +175,8 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
           </AnimatePresence>
 
           <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="rounded-2xl p-3" style={{ background: "rgba(76,175,80,0.2)", border: "1px solid rgba(76,175,80,0.4)" }}>
-              <h3 className="text-green-400 font-bold mb-2 text-center">فريق النور ({teamAPlayers.length})</h3>
+            <div className="rounded-2xl p-3" style={{ background: `${teamProfiles.teamA.color}20`, border: `1px solid ${teamProfiles.teamA.color}66` }}>
+              <h3 className="font-bold mb-2 text-center" style={{ color: teamProfiles.teamA.color }}>{teamProfiles.teamA.name} ({teamAPlayers.length})</h3>
               {teamAPlayers.map((p) => (
                 <div key={p.id} className="flex items-center justify-between bg-black/20 rounded-xl p-2 mb-1">
                   <span className="text-white text-sm">{p.isCreator ? "👑 " : ""}{p.name}</span>
@@ -181,8 +194,8 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
                 </div>
               ))}
             </div>
-            <div className="rounded-2xl p-3" style={{ background: "rgba(255,152,0,0.2)", border: "1px solid rgba(255,152,0,0.4)" }}>
-              <h3 className="text-orange-400 font-bold mb-2 text-center">فريق الظلام ({teamBPlayers.length})</h3>
+            <div className="rounded-2xl p-3" style={{ background: `${teamProfiles.teamB.color}20`, border: `1px solid ${teamProfiles.teamB.color}66` }}>
+              <h3 className="font-bold mb-2 text-center" style={{ color: teamProfiles.teamB.color }}>{teamProfiles.teamB.name} ({teamBPlayers.length})</h3>
               {teamBPlayers.map((p) => (
                 <div key={p.id} className="flex items-center justify-between bg-black/20 rounded-xl p-2 mb-1">
                   <span className="text-white text-sm">{p.isCreator ? "👑 " : ""}{p.name}</span>
@@ -211,8 +224,8 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
                     <span className="text-white text-sm">{p.isCreator ? "👑 " : ""}{p.name}</span>
                     {isCreator && p.id !== playerId && (
                       <div className="flex gap-2">
-                        <button onClick={() => handleSwitchTeam(p.id, "teamA")} className="text-xs text-green-400">نقل لنور</button>
-                        <button onClick={() => handleSwitchTeam(p.id, "teamB")} className="text-xs text-orange-400">نقل لظلام</button>
+                        <button onClick={() => handleSwitchTeam(p.id, "teamA")} className="text-xs text-green-400">نقل ل{teamProfiles.teamA.name}</button>
+                        <button onClick={() => handleSwitchTeam(p.id, "teamB")} className="text-xs text-orange-400">نقل ل{teamProfiles.teamB.name}</button>
                         <button onClick={() => handleKick(p.id)} className="text-xs text-red-400">طرد</button>
                       </div>
                     )}
@@ -226,16 +239,16 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
             <button
               onClick={() => handleChooseTeam("teamA")}
               className="flex-1 py-3 rounded-2xl font-bold transition-all"
-              style={{ background: myTeam === "teamA" ? "linear-gradient(135deg, #4CAF50, #45a049)" : "rgba(255,255,255,0.1)", color: "white" }}
+              style={{ background: myTeam === "teamA" ? teamProfiles.teamA.color : "rgba(255,255,255,0.1)", color: "white" }}
             >
-              فريق النور
+              {teamProfiles.teamA.name}
             </button>
             <button
               onClick={() => handleChooseTeam("teamB")}
               className="flex-1 py-3 rounded-2xl font-bold transition-all"
-              style={{ background: myTeam === "teamB" ? "linear-gradient(135deg, #FF9800, #F57C00)" : "rgba(255,255,255,0.1)", color: "white" }}
+              style={{ background: myTeam === "teamB" ? teamProfiles.teamB.color : "rgba(255,255,255,0.1)", color: "white" }}
             >
-              فريق الظلام
+              {teamProfiles.teamB.name}
             </button>
           </div>
 
@@ -258,6 +271,35 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
           {isCreator && (
             <div className="mt-4 rounded-2xl p-4" style={{ background: "rgba(0,0,0,0.4)" }}>
               <h3 className="text-yellow-400 font-bold mb-3">إعدادات المدير</h3>
+
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                  <label className="text-white/60 text-xs block mb-1">اسم الفريق الأول</label>
+                  <input value={teamProfiles.teamA.name}
+                    onChange={(e) => {
+                      const name = e.target.value.trim() || teamProfiles.teamA.name;
+                      setTeamProfiles((prev) => ({ ...prev, teamA: { ...prev.teamA, name } }));
+                      getSocket().emit("updateTeamProfile", { roomCode, team: "teamA", profile: { name, color: teamProfiles.teamA.color } });
+                    }}
+                    className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none text-right"
+                    style={{ background: "rgba(255,255,255,0.1)", border: `1px solid ${teamProfiles.teamA.color}66` }}
+                    dir="rtl"
+                  />
+                </div>
+                <div>
+                  <label className="text-white/60 text-xs block mb-1">اسم الفريق الثاني</label>
+                  <input value={teamProfiles.teamB.name}
+                    onChange={(e) => {
+                      const name = e.target.value.trim() || teamProfiles.teamB.name;
+                      setTeamProfiles((prev) => ({ ...prev, teamB: { ...prev.teamB, name } }));
+                      getSocket().emit("updateTeamProfile", { roomCode, team: "teamB", profile: { name, color: teamProfiles.teamB.color } });
+                    }}
+                    className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none text-right"
+                    style={{ background: "rgba(255,255,255,0.1)", border: `1px solid ${teamProfiles.teamB.color}66` }}
+                    dir="rtl"
+                  />
+                </div>
+              </div>
 
               <div className="mb-3">
                 <label className="text-white/70 text-sm block mb-1">وضع اللعبة</label>

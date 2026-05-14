@@ -3,9 +3,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getSocket } from "@/lib/socket";
 import type { TriviaQuestion, Team } from "@/types/game";
 
+interface TeamProfile {
+  name: string;
+  color: string;
+}
+
 interface GamePageProps {
   roomCode: string;
   myTeam: Team | null;
+  teamProfiles: Record<Team, TeamProfile>;
   onGameOver: () => void;
 }
 
@@ -28,7 +34,7 @@ const ROUND_NAMES: Record<number, string> = {
   4: "الجولة 4: كود نيمز",
 };
 
-export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps) {
+export default function GamePage({ roomCode, myTeam, teamProfiles, onGameOver }: GamePageProps) {
   const [phase, setPhase] = useState<GamePhase>({ type: "waiting" });
   const [currentRound, setCurrentRound] = useState(1);
   const [scores, setScores] = useState({ teamA: 0, teamB: 0 });
@@ -75,7 +81,7 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
     });
 
     socket.on("drawingSubmitted", (data: { team: Team }) => {
-      showToast(`${data.team === "teamA" ? "فريق النور" : "فريق الظلام"} أرسل رسمته`);
+      showToast(`${data.team === "teamA" ? teamProfiles.teamA.name : teamProfiles.teamB.name} أرسل رسمته`);
     });
 
     // Round 2: Guess with 15s timer
@@ -85,7 +91,7 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
     });
 
     socket.on("guessResult", (data: { team: Team; isCorrect: boolean; correctWord: string }) => {
-      showToast(data.isCorrect ? `${data.team === "teamA" ? "فريق النور" : "فريق الظلام"} خمّن صحيح!` : `خطأ! الكلمة: ${data.correctWord}`);
+      showToast(data.isCorrect ? `${data.team === "teamA" ? teamProfiles.teamA.name : teamProfiles.teamB.name} خمّن صحيح!` : `خطأ! الكلمة: ${data.correctWord}`);
     });
 
     // Round 3: Write answer (same as Round 1)
@@ -109,7 +115,7 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
     });
 
     socket.on("spyClueSubmitted", (data: { team: Team }) => {
-      showToast(`${data.team === "teamA" ? "فريق النور" : "فريق الظلام"} أرسل تلميحه`);
+      showToast(`${data.team === "teamA" ? teamProfiles.teamA.name : teamProfiles.teamB.name} أرسل تلميحه`);
     });
 
     socket.on("showSpyGuesses", (data: { clueA: string; clueB: string }) => {
@@ -118,7 +124,7 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
     });
 
     socket.on("spyGuessResult", (data: { team: Team; isCorrect: boolean; correctWord: string }) => {
-      showToast(data.isCorrect ? `${data.team === "teamA" ? "فريق النور" : "فريق الظلام"} خمّن صحيح!` : `خطأ! الكلمة: ${data.correctWord}`);
+      showToast(data.isCorrect ? `${data.team === "teamA" ? teamProfiles.teamA.name : teamProfiles.teamB.name} خمّن صحيح!` : `خطأ! الكلمة: ${data.correctWord}`);
     });
 
     socket.on("roundEnd", (data: { round: number; scores: { teamA: number; teamB: number }; totalScores: { teamA: number; teamB: number } }) => {
@@ -467,16 +473,16 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
               <p className="text-white/50 text-sm mb-4">نقاط هذه الجولة</p>
               <div className="flex justify-center gap-10">
                 <div>
-                  <p className="text-green-400 font-bold text-sm mb-1">فريق النور</p>
+                  <p className="font-bold text-sm mb-1" style={{ color: teamProfiles.teamA.color }}>{teamProfiles.teamA.name}</p>
                   <p className="text-white text-3xl font-bold">+{phase.scores.teamA}</p>
                 </div>
                 <div>
-                  <p className="text-orange-400 font-bold text-sm mb-1">فريق الظلام</p>
+                  <p className="font-bold text-sm mb-1" style={{ color: teamProfiles.teamB.color }}>{teamProfiles.teamB.name}</p>
                   <p className="text-white text-3xl font-bold">+{phase.scores.teamB}</p>
                 </div>
               </div>
             </div>
-            <p className="text-white/40 text-sm">الإجمالي: النور {phase.totalScores.teamA} - الظلام {phase.totalScores.teamB}</p>
+            <p className="text-white/40 text-sm">الإجمالي: {teamProfiles.teamA.name} {phase.totalScores.teamA} - {teamProfiles.teamB.name} {phase.totalScores.teamB}</p>
             <motion.p className="text-white/30 text-sm" animate={{ opacity: [0.3, 0.8, 0.3] }} transition={{ duration: 1.5, repeat: Infinity }}>
               جارٍ الانتقال للجولة التالية...
             </motion.p>
@@ -488,16 +494,16 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
           <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-8 space-y-5">
             <motion.div className="text-6xl" animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1, repeat: 2 }}>🏆</motion.div>
             <h2 className="text-3xl font-bold text-white">نهاية اللعبة</h2>
-            <div className="text-5xl">{phase.winner === "فريق النور" ? "🛡️" : phase.winner === "فريق الظلام" ? "🌑" : "🤝"}</div>
+            <div className="text-5xl">{phase.winner === teamProfiles.teamA.name ? "🛡️" : phase.winner === teamProfiles.teamB.name ? "🌑" : "🤝"}</div>
             <h3 className="text-2xl font-bold" style={{ color: "#FFD700" }}>{phase.winner}</h3>
             <div className="rounded-2xl p-6" style={{ background: "rgba(255,255,255,0.05)" }}>
               <div className="flex justify-center gap-12">
                 <div>
-                  <p className="text-green-400 font-bold mb-1">فريق النور</p>
+                  <p className="font-bold mb-1" style={{ color: teamProfiles.teamA.color }}>{teamProfiles.teamA.name}</p>
                   <p className="text-white text-3xl font-bold">{phase.finalScores.teamA}</p>
                 </div>
                 <div>
-                  <p className="text-orange-400 font-bold mb-1">فريق الظلام</p>
+                  <p className="font-bold mb-1" style={{ color: teamProfiles.teamB.color }}>{teamProfiles.teamB.name}</p>
                   <p className="text-white text-3xl font-bold">{phase.finalScores.teamB}</p>
                 </div>
               </div>
@@ -516,10 +522,10 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
         <div className="flex items-center justify-between mb-4">
           <span className="text-white/60 text-sm">الجولة {currentRound}/4</span>
           <div className="flex gap-4 text-sm font-bold">
-            <span className="text-green-400">النور: {scores.teamA}</span>
-            <span className="text-orange-400">الظلام: {scores.teamB}</span>
+            <span style={{ color: teamProfiles.teamA.color }}>{teamProfiles.teamA.name}: {scores.teamA}</span>
+            <span style={{ color: teamProfiles.teamB.color }}>{teamProfiles.teamB.name}: {scores.teamB}</span>
           </div>
-          <span className="text-white/40 text-xs">{myTeam === "teamA" ? "🛡️ النور" : myTeam === "teamB" ? "🌑 الظلام" : ""}</span>
+          <span className="text-white/40 text-xs">{myTeam === "teamA" ? `🛡️ ${teamProfiles.teamA.name}` : myTeam === "teamB" ? `🌑 ${teamProfiles.teamB.name}` : ""}</span>
         </div>
 
         <div className="rounded-3xl p-6" style={{ background: "rgba(0,0,0,0.65)", border: "1px solid rgba(255,215,0,0.3)" }}>
