@@ -16,7 +16,7 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
   const [players, setPlayers] = useState<Player[]>([]);
   const [settings, setSettings] = useState<RoomSettings>({ pointsPerCorrect: 10, drawingPoints: 20, triviaPoints: 10, spyPoints: 30, guessTimeLimit: 15 });
   const [isCreator, setIsCreator] = useState(initialIsCreator);
-  const [gameMode, setGameMode] = useState<"2v2" | "1v1">("2v2");
+  const [gameMode, setGameMode] = useState<"4v4" | "1v1">("4v4");
   const [myTeam, setMyTeam] = useState<Team | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [systemMsg, setSystemMsg] = useState("");
@@ -31,7 +31,7 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
       if (me) setMyTeam(me.team);
     });
     socket.on("roomSettings", (s: RoomSettings) => setSettings(s));
-    socket.on("gameModeChanged", (mode: "2v2" | "1v1") => setGameMode(mode));
+    socket.on("gameModeChanged", (mode: "4v4" | "1v1") => setGameMode(mode));
     socket.on("systemMessage", (msg: string) => {
       setSystemMsg(msg);
       setTimeout(() => setSystemMsg(""), 3000);
@@ -84,7 +84,7 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
     getSocket().emit("forceStartGame", { roomCode });
   };
 
-  const handleGameModeChange = (mode: "2v2" | "1v1") => {
+  const handleGameModeChange = (mode: "4v4" | "1v1") => {
     setGameMode(mode);
     getSocket().emit("changeGameMode", { roomCode, mode });
   };
@@ -120,7 +120,7 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
   const teamAPlayers = players.filter((p) => p.team === "teamA");
   const teamBPlayers = players.filter((p) => p.team === "teamB");
   const noTeamPlayers = players.filter((p) => !p.team);
-  const playersNeeded = gameMode === "2v2" ? 4 : 2;
+  const playersNeeded = gameMode === "4v4" ? 8 : 2;
   const readyCount = players.filter((p) => p.isReady).length;
   const allReady = players.length >= playersNeeded && players.every((p) => p.isReady);
 
@@ -262,11 +262,11 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
               <div className="mb-3">
                 <label className="text-white/70 text-sm block mb-1">وضع اللعبة</label>
                 <div className="flex gap-2">
-                  {(["2v2", "1v1"] as const).map((m) => (
+                  {(["4v4", "1v1"] as const).map((m) => (
                     <button key={m} onClick={() => handleGameModeChange(m)}
                       className="flex-1 py-2 rounded-xl text-sm font-bold"
                       style={{ background: gameMode === m ? "linear-gradient(135deg, #FFD700, #FF8C00)" : "rgba(255,255,255,0.1)", color: gameMode === m ? "#000" : "#fff" }}>
-                      {m === "2v2" ? "2 ضد 2" : "1 ضد 1"}
+                      {m === "4v4" ? "4 ضد 4" : "1 ضد 1"}
                     </button>
                   ))}
                 </div>

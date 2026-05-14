@@ -31,7 +31,7 @@ export function createRoom(
     currentRound: 1,
     teamAScore: 0,
     teamBScore: 0,
-    gameMode: "2v2",
+    gameMode: "4v4",
     gameStarted: false,
     teams: {
       teamA: { name: "\u0641\u0631\u064a\u0642 \u0627\u0644\u0646\u0648\u0631", color: "#22c55e" },

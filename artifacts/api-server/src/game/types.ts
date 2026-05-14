@@ -28,7 +28,7 @@ export interface Room {
   currentRound: number;
   teamAScore: number;
   teamBScore: number;
-  gameMode: "2v2" | "1v1";
+  gameMode: "4v4" | "1v1";
   gameStarted: boolean;
   roundData: RoundData | null;
   settings: RoomSettings;

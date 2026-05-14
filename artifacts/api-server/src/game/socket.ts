@@ -13,12 +13,12 @@ import type { Player, Round1Data, Round2Data, Round3Data, Round4Data, Team } fro
 
 const TEAM_KEYS: Team[] = ["teamA", "teamB"];
 
-function getPlayersNeeded(mode: "2v2" | "1v1"): number {
-  return mode === "2v2" ? 4 : 2;
+function getPlayersNeeded(mode: "4v4" | "1v1"): number {
+  return mode === "4v4" ? 8 : 2;
 }
 
-function getTeamSize(mode: "2v2" | "1v1"): number {
-  return mode === "2v2" ? 2 : 1;
+function getTeamSize(mode: "4v4" | "1v1"): number {
+  return mode === "4v4" ? 4 : 1;
 }
 
 function getTeamPlayers(players: Player[], team: Team): Player[] {
@@ -67,9 +67,9 @@ export function initSocketServer(httpServer: HttpServer): void {
     const requiredPerTeam = getTeamSize(room.gameMode);
 
     if (room.players.length !== requiredPlayers) {
-      return room.gameMode === "2v2"
-        ? `نمط 2 ضد 2 يحتاج أربعة لاعبين قبل البدء. (${room.players.length}/${requiredPlayers})`
-        : `نمط 1 ضد 1 يحتاج لاعبين اثنين فقط قبل البدء. (${room.players.length}/${requiredPlayers})`;
+      return room.gameMode === "4v4"
+        ? `نمط 4 ضد 4 يحتاج 8 لاعبين قبل البدء. (${room.players.length}/${requiredPlayers})`
+        : `نمط 1 ضد 1 يحتاج لاعبين فقط قبل البدء. (${room.players.length}/${requiredPlayers})`;
     }
 
     for (const team of TEAM_KEYS) {
@@ -132,7 +132,7 @@ export function initSocketServer(httpServer: HttpServer): void {
     const room = getRoom(roomCode);
     if (!room) return null;
     const players = getTeamPlayers(room.players, team);
-    return room.gameMode === "2v2" ? players[1] ?? null : players[0] ?? null;
+    return players[1] ?? null;
   }
 
   function emitDrawingRound(roomCode: string) {
@@ -149,8 +149,8 @@ export function initSocketServer(httpServer: HttpServer): void {
         word: player.id === drawActor?.id || room.gameMode === "1v1" ? data.word : null,
         wordLength: data.wordLength,
         canDraw: player.id === drawActor?.id || room.gameMode === "1v1",
-        role: room.gameMode === "2v2" ? (player.id === drawActor?.id ? "drawer" : "guesser") : "solo",
-        teammateName: room.gameMode === "2v2" ? (player.id === drawActor?.id ? guessActor?.name : drawActor?.name) : null,
+        role: player.id === drawActor?.id ? "drawer" : player.id === guessActor?.id ? "guesser" : "spectator",
+        teammateName: player.id === drawActor?.id ? guessActor?.name : drawActor?.name,
       });
     });
   }
@@ -170,8 +170,8 @@ export function initSocketServer(httpServer: HttpServer): void {
         drawingB: data.drawings.teamB,
         wordLength: data.wordLength,
         canGuess: player.id === guessActor?.id || room.gameMode === "1v1",
-        role: room.gameMode === "2v2" ? (player.id === guessActor?.id ? "guesser" : "drawer") : "solo",
-        teammateName: room.gameMode === "2v2" ? (player.id === guessActor?.id ? drawActor?.name : guessActor?.name) : null,
+        role: player.id === guessActor?.id ? "guesser" : player.id === drawActor?.id ? "drawer" : "spectator",
+        teammateName: player.id === guessActor?.id ? drawActor?.name : guessActor?.name,
       });
     });
 
@@ -221,8 +221,8 @@ export function initSocketServer(httpServer: HttpServer): void {
         word: player.id === clueActor?.id || room.gameMode === "1v1" ? data.word : null,
         clues: player.id === clueActor?.id || room.gameMode === "1v1" ? data.clues : [],
         canClue: player.id === clueActor?.id || room.gameMode === "1v1",
-        role: room.gameMode === "2v2" ? (player.id === clueActor?.id ? "spymaster" : "field-agent") : "solo",
-        teammateName: room.gameMode === "2v2" ? (player.id === clueActor?.id ? guessActor?.name : clueActor?.name) : null,
+        role: player.id === clueActor?.id ? "spymaster" : player.id === guessActor?.id ? "field-agent" : "spectator",
+        teammateName: player.id === clueActor?.id ? guessActor?.name : clueActor?.name,
       });
     });
   }
@@ -241,8 +241,8 @@ export function initSocketServer(httpServer: HttpServer): void {
         clueA: data.spyClues.teamA,
         clueB: data.spyClues.teamB,
         canGuess: player.id === guessActor?.id || room.gameMode === "1v1",
-        role: room.gameMode === "2v2" ? (player.id === guessActor?.id ? "field-agent" : "spymaster") : "solo",
-        teammateName: room.gameMode === "2v2" ? (player.id === guessActor?.id ? clueActor?.name : guessActor?.name) : null,
+        role: player.id === guessActor?.id ? "field-agent" : player.id === clueActor?.id ? "spymaster" : "spectator",
+        teammateName: player.id === guessActor?.id ? clueActor?.name : guessActor?.name,
       });
     });
   }
@@ -717,12 +717,12 @@ export function initSocketServer(httpServer: HttpServer): void {
       io.to(roomCode).emit("systemMessage", `تم نقل ${player.name} إلى ${room.teams[newTeam].name}.`);
     });
 
-    socket.on("changeGameMode", ({ roomCode, mode }: { roomCode: string; mode: "2v2" | "1v1" }) => {
+    socket.on("changeGameMode", ({ roomCode, mode }: { roomCode: string; mode: "4v4" | "1v1" }) => {
       const room = getRoom(roomCode);
       if (!room || room.creatorId !== socket.id) return;
       room.gameMode = mode;
       io.to(roomCode).emit("gameModeChanged", mode);
-      io.to(roomCode).emit("systemMessage", `تم تغيير وضع اللعبة إلى ${mode === "2v2" ? "2 ضد 2" : "1 ضد 1"}`);
+      io.to(roomCode).emit("systemMessage", `تم تغيير وضع اللعبة إلى ${mode === "4v4" ? "4 ضد 4" : "1 ضد 1"}`);
       room.gameStarted = false;
       room.players.forEach((p) => (p.isReady = false));
       if (mode === "1v1") {
@@ -743,7 +743,7 @@ export function initSocketServer(httpServer: HttpServer): void {
       const player = room.players.find((p) => p.id === socket.id);
       if (!player) return;
       const teamCount = room.players.filter((p) => p.team === team).length;
-      const maxPerTeam = room.gameMode === "2v2" ? 2 : 1;
+      const maxPerTeam = room.gameMode === "4v4" ? 4 : 1;
       if (teamCount >= maxPerTeam && player.team !== team) { socket.emit("error", "هذا الفريق ممتلئ"); return; }
       player.team = team;
       player.isReady = false;
