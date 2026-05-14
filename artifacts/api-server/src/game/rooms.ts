@@ -5,9 +5,9 @@ const rooms = new Map<string, Room>();
 const defaultSettings: RoomSettings = {
   pointsPerCorrect: 10,
   drawingPoints: 20,
-  weirdPoints: 2,
+  triviaPoints: 10,
   spyPoints: 30,
-  timeLimit: 30,
+  guessTimeLimit: 15,
 };
 
 export function createRoom(
@@ -34,8 +34,8 @@ export function createRoom(
     gameMode: "2v2",
     gameStarted: false,
     teams: {
-      teamA: { name: "فريق النور", color: "#22c55e" },
-      teamB: { name: "فريق الظلام", color: "#f97316" },
+      teamA: { name: "\u0641\u0631\u064a\u0642 \u0627\u0644\u0646\u0648\u0631", color: "#22c55e" },
+      teamB: { name: "\u0641\u0631\u064a\u0642 \u0627\u0644\u0638\u0644\u0627\u0645", color: "#f97316" },
     },
     roundData: null,
     settings: { ...defaultSettings, ...(settings ?? {}) },

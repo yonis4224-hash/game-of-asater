@@ -19,9 +19,9 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined, initialRoomCode
   const defaultSettings: RoomSettings = {
     pointsPerCorrect: 10,
     drawingPoints: 20,
-    weirdPoints: 2,
+    triviaPoints: 10,
     spyPoints: 30,
-    timeLimit: 30,
+    guessTimeLimit: 15,
   };
 
   const handleCreate = () => {

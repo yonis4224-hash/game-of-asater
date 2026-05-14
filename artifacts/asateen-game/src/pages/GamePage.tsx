@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getSocket } from "@/lib/socket";
-import type { SportsQuestion, WeirdQuestion, Team } from "@/types/game";
+import type { TriviaQuestion, Team } from "@/types/game";
 
 interface GamePageProps {
   roomCode: string;
@@ -12,20 +12,20 @@ interface GamePageProps {
 type GamePhase =
   | { type: "waiting" }
   | { type: "round_intro"; round: number }
-  | { type: "sports_question"; question: SportsQuestion; qNum: number; total: number; answered: boolean }
+  | { type: "write_answer"; question: TriviaQuestion; qNum: number; total: number; submitted: boolean }
+  | { type: "choose_option"; question: TriviaQuestion; options: string[]; qNum: number; total: number; answered: boolean }
   | { type: "drawing"; word: string; wordLength: number; submitted: boolean }
-  | { type: "guess_drawing"; drawingA: string; drawingB: string; wordLength: number; guessed: boolean }
-  | { type: "weird_question"; question: WeirdQuestion; options: string[]; qNum: number; total: number; answered: boolean }
+  | { type: "guess_drawing"; drawingA: string; drawingB: string; wordLength: number; guessed: boolean; timeLeft: number }
   | { type: "spy_master"; word: string; clues: string[]; submitted: boolean }
   | { type: "spy_guess"; clueA: string; clueB: string; guessed: boolean }
   | { type: "round_end"; round: number; scores: { teamA: number; teamB: number }; totalScores: { teamA: number; teamB: number } }
   | { type: "game_end"; finalScores: { teamA: number; teamB: number }; winner: string };
 
 const ROUND_NAMES: Record<number, string> = {
-  1: "الجولة 1: أسئلة رياضية",
+  1: "الجولة 1: أسئلة كروية",
   2: "الجولة 2: رسم وتخمين",
-  3: "الجولة 3: ألغاز غريبة",
-  4: "الجولة 4: الكود السري",
+  3: "الجولة 3: ألعاب وأفلام وجغرافيا",
+  4: "الجولة 4: كود نيمز",
 };
 
 export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps) {
@@ -35,6 +35,7 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
   const [toast, setToast] = useState("");
   const [guessText, setGuessText] = useState("");
   const [clueText, setClueText] = useState("");
+  const [answerText, setAnswerText] = useState("");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef({ active: false, lastX: 0, lastY: 0 });
 
@@ -53,14 +54,22 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
       setTimeout(() => setPhase((p) => p.type === "round_intro" ? { type: "waiting" } : p), 2200);
     });
 
-    socket.on("showQuestion", (data: { question: SportsQuestion; questionNumber: number; totalQuestions: number }) => {
-      setPhase({ type: "sports_question", question: data.question, qNum: data.questionNumber, total: data.totalQuestions, answered: false });
+    // Round 1: Write answer phase
+    socket.on("showQuestion", (data: { question: TriviaQuestion; questionNumber: number; totalQuestions: number; phase: string }) => {
+      setAnswerText("");
+      setPhase({ type: "write_answer", question: data.question, qNum: data.questionNumber, total: data.totalQuestions, submitted: false });
     });
 
-    socket.on("teamAnswered", (data: { team: Team; isCorrect: boolean }) => {
-      showToast(`${data.team === "teamA" ? "فريق النور" : "فريق الظلام"} ${data.isCorrect ? "أجاب صحيح!" : "أجاب خطأ"}`);
+    // Round 1: Choose from options phase
+    socket.on("showRound1Options", (data: { question: TriviaQuestion; options: string[]; questionNumber: number; totalQuestions: number }) => {
+      setPhase({ type: "choose_option", question: data.question, options: data.options, qNum: data.questionNumber, total: data.totalQuestions, answered: false });
     });
 
+    socket.on("round1ChoiceResult", (data: { playerName: string; team: Team | null; isCorrect: boolean }) => {
+      showToast(`${data.playerName} ${data.isCorrect ? "✓ صحيح!" : "✗ خطأ"}`);
+    });
+
+    // Round 2: Drawing
     socket.on("startDrawing", (data: { word: string; wordLength: number }) => {
       setPhase({ type: "drawing", word: data.word, wordLength: data.wordLength, submitted: false });
     });
@@ -69,23 +78,31 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
       showToast(`${data.team === "teamA" ? "فريق النور" : "فريق الظلام"} أرسل رسمته`);
     });
 
+    // Round 2: Guess with 15s timer
     socket.on("showGuesses", (data: { drawingA: string; drawingB: string; wordLength: number }) => {
       setGuessText("");
-      setPhase({ type: "guess_drawing", drawingA: data.drawingA, drawingB: data.drawingB, wordLength: data.wordLength, guessed: false });
+      setPhase({ type: "guess_drawing", drawingA: data.drawingA, drawingB: data.drawingB, wordLength: data.wordLength, guessed: false, timeLeft: 15 });
     });
 
     socket.on("guessResult", (data: { team: Team; isCorrect: boolean; correctWord: string }) => {
       showToast(data.isCorrect ? `${data.team === "teamA" ? "فريق النور" : "فريق الظلام"} خمّن صحيح!` : `خطأ! الكلمة: ${data.correctWord}`);
     });
 
-    socket.on("showWeirdQuestion", (data: { question: WeirdQuestion; options: string[]; questionNumber: number; totalQuestions: number }) => {
-      setPhase({ type: "weird_question", question: data.question, options: data.options, qNum: data.questionNumber, total: data.totalQuestions, answered: false });
+    // Round 3: Write answer (same as Round 1)
+    socket.on("showQuestionRound3", (data: { question: TriviaQuestion; questionNumber: number; totalQuestions: number; phase: string }) => {
+      setAnswerText("");
+      setPhase({ type: "write_answer", question: data.question, qNum: data.questionNumber, total: data.totalQuestions, submitted: false });
     });
 
-    socket.on("weirdTeamAnswered", (data: { team: Team; answer: string; isCorrect: boolean }) => {
-      showToast(`${data.team === "teamA" ? "النور" : "الظلام"}: ${data.answer} ${data.isCorrect ? "✓" : "✗"}`);
+    socket.on("showRound3Options", (data: { question: TriviaQuestion; options: string[]; questionNumber: number; totalQuestions: number }) => {
+      setPhase({ type: "choose_option", question: data.question, options: data.options, qNum: data.questionNumber, total: data.totalQuestions, answered: false });
     });
 
+    socket.on("round3ChoiceResult", (data: { playerName: string; team: Team | null; isCorrect: boolean }) => {
+      showToast(`${data.playerName} ${data.isCorrect ? "✓ صحيح!" : "✗ خطأ"}`);
+    });
+
+    // Round 4: Spy
     socket.on("startSpyMaster", (data: { word: string; clues: string[] }) => {
       setClueText("");
       setPhase({ type: "spy_master", word: data.word, clues: data.clues, submitted: false });
@@ -115,12 +132,32 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
     });
 
     return () => {
-      ["roundLoaded","showQuestion","teamAnswered","startDrawing","drawingSubmitted","showGuesses","guessResult",
-       "showWeirdQuestion","weirdTeamAnswered","startSpyMaster","spyClueSubmitted","showSpyGuesses","spyGuessResult",
+      ["roundLoaded","showQuestion","showRound1Options","round1ChoiceResult",
+       "startDrawing","drawingSubmitted","showGuesses","guessResult",
+       "showQuestionRound3","showRound3Options","round3ChoiceResult",
+       "startSpyMaster","spyClueSubmitted","showSpyGuesses","spyGuessResult",
        "roundEnd","gameEnd"]
         .forEach((ev) => socket.off(ev));
     };
   }, [showToast]);
+
+  // 15-second countdown for guess_drawing
+  useEffect(() => {
+    if (phase.type !== "guess_drawing") return;
+    if (phase.guessed || phase.timeLeft <= 0) return;
+    const interval = setInterval(() => {
+      setPhase((p) => {
+        if (p.type !== "guess_drawing" || p.guessed) return p;
+        const next = p.timeLeft - 1;
+        if (next <= 0) {
+          getSocket().emit("submitGuess", { roomCode, team: myTeam, guess: "" });
+          return { ...p, guessed: true, timeLeft: 0 };
+        }
+        return { ...p, timeLeft: next };
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [phase, roomCode, myTeam]);
 
   const initCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -200,6 +237,19 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
     setPhase((p) => p.type === "spy_guess" ? { ...p, guessed: true } : p);
   };
 
+  const submitPlayerAnswer = () => {
+    if (!answerText.trim()) return;
+    const event = currentRound === 3 ? "submitPlayerAnswerRound3" : "submitPlayerAnswer";
+    getSocket().emit(event, { roomCode, answer: answerText.trim() });
+    setPhase((p) => p.type === "write_answer" ? { ...p, submitted: true } : p);
+  };
+
+  const submitPlayerChoice = (choiceIndex: number) => {
+    const event = currentRound === 3 ? "submitPlayerChoiceRound3" : "submitPlayerChoice";
+    getSocket().emit(event, { roomCode, choiceIndex });
+    setPhase((p) => p.type === "choose_option" ? { ...p, answered: true } : p);
+  };
+
   const renderPhase = () => {
     switch (phase.type) {
       case "waiting":
@@ -214,26 +264,52 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
         return (
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-center py-12">
             <motion.div className="text-7xl mb-4" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.5, repeat: 2 }}>
-              {["⚽", "🎨", "🤔", "🕵️"][phase.round - 1]}
+              {["⚽", "🎨", "🎬", "🕵️"][phase.round - 1]}
             </motion.div>
             <h2 className="text-2xl font-bold text-white">{ROUND_NAMES[phase.round]}</h2>
           </motion.div>
         );
 
-      case "sports_question":
+      case "write_answer":
         return (
           <div className="space-y-5">
             <div className="text-center">
               <p className="text-white/50 text-sm mb-2">السؤال {phase.qNum}/{phase.total}</p>
               <p className="text-white text-lg font-bold leading-relaxed">{phase.question.q}</p>
+              <p className="text-white/40 text-xs mt-2">اكتب إجابتك الخاصة — ستُعرض جميع الإجابات مع الإجابة الصحيحة</p>
+            </div>
+            {!phase.submitted ? (
+              <div className="space-y-3">
+                <input
+                  className="w-full px-4 py-3 rounded-2xl text-white text-right outline-none"
+                  style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,215,0,0.5)" }}
+                  placeholder="اكتب إجابتك هنا"
+                  value={answerText}
+                  onChange={(e) => setAnswerText(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && submitPlayerAnswer()}
+                  dir="rtl"
+                />
+                <button onClick={submitPlayerAnswer} className="w-full py-3 rounded-2xl text-black font-bold" style={{ background: "linear-gradient(135deg, #FFD700, #FF8C00)" }}>إرسال الإجابة</button>
+              </div>
+            ) : (
+              <div className="text-center text-white/50 py-6">✓ تم إرسال إجابتك — في انتظار بقية اللاعبين...</div>
+            )}
+          </div>
+        );
+
+      case "choose_option":
+        return (
+          <div className="space-y-5">
+            <div className="text-center">
+              <p className="text-white/50 text-sm mb-2">اختر الإجابة الصحيحة — السؤال {phase.qNum}/{phase.total}</p>
+              <p className="text-white text-lg font-bold leading-relaxed">{phase.question.q}</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {phase.question.options.map((opt, i) => (
+              {phase.options.map((opt, i) => (
                 <motion.button key={i} whileHover={!phase.answered ? { scale: 1.03 } : {}} whileTap={!phase.answered ? { scale: 0.97 } : {}}
                   onClick={() => {
                     if (phase.answered) return;
-                    setPhase((p) => p.type === "sports_question" ? { ...p, answered: true } : p);
-                    getSocket().emit("submitAnswer", { roomCode, team: myTeam, answerIndex: i });
+                    submitPlayerChoice(i);
                   }}
                   className="py-4 px-3 rounded-2xl text-white font-bold text-center text-sm"
                   style={{ background: phase.answered ? "rgba(255,255,255,0.08)" : "linear-gradient(135deg, #667eea, #764ba2)", cursor: phase.answered ? "default" : "pointer" }}>
@@ -241,7 +317,7 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
                 </motion.button>
               ))}
             </div>
-            {phase.answered && <p className="text-center text-white/40 text-sm">في انتظار الفريق الآخر...</p>}
+            {phase.answered && <p className="text-center text-white/40 text-sm">في انتظار بقية اللاعبين...</p>}
           </div>
         );
 
@@ -284,7 +360,14 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
           <div className="space-y-4">
             <div className="text-center">
               <h3 className="text-white font-bold text-lg">خمّن الكلمة من رسمة الخصم</h3>
-              <p className="text-white/40 text-sm">عدد الحروف: {phase.wordLength}</p>
+              <div className="flex items-center justify-center gap-2 mt-1">
+                <p className="text-white/40 text-sm">عدد الحروف: {phase.wordLength}</p>
+                {!phase.guessed && (
+                  <span className="text-red-400 font-bold text-sm animate-pulse">
+                    ⏱️ {phase.timeLeft}ث
+                  </span>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -315,31 +398,6 @@ export default function GamePage({ roomCode, myTeam, onGameOver }: GamePageProps
           </div>
         );
       }
-
-      case "weird_question":
-        return (
-          <div className="space-y-5">
-            <div className="text-center">
-              <p className="text-white/50 text-sm mb-2">اللغز {phase.qNum}/{phase.total}</p>
-              <p className="text-white text-lg font-bold">{phase.question.q}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {phase.options.map((opt, i) => (
-                <motion.button key={i} whileHover={!phase.answered ? { scale: 1.03 } : {}} whileTap={!phase.answered ? { scale: 0.97 } : {}}
-                  onClick={() => {
-                    if (phase.answered) return;
-                    setPhase((p) => p.type === "weird_question" ? { ...p, answered: true } : p);
-                    getSocket().emit("submitWeirdAnswer", { roomCode, team: myTeam, answer: opt });
-                  }}
-                  className="py-4 px-3 rounded-2xl text-white font-bold text-center text-sm"
-                  style={{ background: phase.answered ? "rgba(255,255,255,0.08)" : "linear-gradient(135deg, #f093fb, #f5576c)", cursor: phase.answered ? "default" : "pointer" }}>
-                  {opt}
-                </motion.button>
-              ))}
-            </div>
-            {phase.answered && <p className="text-center text-white/40 text-sm">في انتظار الفريق الآخر...</p>}
-          </div>
-        );
 
       case "spy_master":
         return (

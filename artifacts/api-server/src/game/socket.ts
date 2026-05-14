@@ -3,11 +3,10 @@ import { Server as SocketServer } from "socket.io";
 import { logger } from "../lib/logger";
 import { createRoom, getRoom, deleteRoom, generateRoomCode } from "./rooms";
 import {
-  sportsQuestions,
-  weirdQuestions,
+  footballQuestions,
+  triviaQuestions,
   drawingWords,
   spyWords,
-  fakeAnswers,
   shuffle,
 } from "./questions";
 import type { Player, Round1Data, Round2Data, Round3Data, Round4Data, Team } from "./types";
@@ -41,6 +40,7 @@ export function initSocketServer(httpServer: HttpServer): void {
   const suggestionTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const choiceTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const roomDeletionTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const guessTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   function emitRoomMeta(roomCode: string) {
     const room = getRoom(roomCode);
@@ -174,6 +174,37 @@ export function initSocketServer(httpServer: HttpServer): void {
         teammateName: room.gameMode === "2v2" ? (player.id === guessActor?.id ? drawActor?.name : guessActor?.name) : null,
       });
     });
+
+    // Start 15-second guess timer
+    if (guessTimers.has(roomCode)) {
+      clearTimeout(guessTimers.get(roomCode)!);
+      guessTimers.delete(roomCode);
+    }
+    const timer = setTimeout(() => {
+      const r = getRoom(roomCode);
+      if (!r || r.currentRound !== 2) return;
+      const d = r.roundData as Round2Data;
+      for (const t of TEAM_KEYS) {
+        if (d.guesses[t] === null) {
+          d.guesses[t] = false;
+          io.to(roomCode).emit("guessResult", { team: t, isCorrect: false, correctWord: d.word });
+        }
+      }
+      const d2 = r.roundData as Round2Data;
+      if (d2.guesses.teamA !== null && d2.guesses.teamB !== null) {
+        io.to(roomCode).emit("roundEnd", {
+          round: 2,
+          scores: {
+            teamA: d2.guesses.teamA ? r.settings.drawingPoints : 0,
+            teamB: d2.guesses.teamB ? r.settings.drawingPoints : 0,
+          },
+          totalScores: { teamA: r.teamAScore, teamB: r.teamBScore },
+        });
+        setTimeout(() => loadRound(roomCode, 3), 4000);
+      }
+      guessTimers.delete(roomCode);
+    }, 15_000);
+    guessTimers.set(roomCode, timer);
   }
 
   function emitSpyMasterRound(roomCode: string) {
@@ -256,17 +287,23 @@ export function initSocketServer(httpServer: HttpServer): void {
     else endGame(roomCode);
   }
 
+  // =================================================================
+  // ROUND 1: Football Trivia — ALL PLAYERS WRITE THEIR OWN ANSWER
+  // =================================================================
   function loadRound1(roomCode: string) {
     const room = getRoom(roomCode);
     if (!room) return;
-    const questions = shuffle(sportsQuestions).slice(0, 4);
+    const questions = shuffle(footballQuestions).slice(0, 4);
+    const initialAnswers: Record<string, string | null> = {};
+    room.players.forEach((p) => { initialAnswers[p.id] = null; });
+
     room.roundData = {
       type: "round1",
       questions,
       currentIndex: 0,
-      suggested: { teamA: null, teamB: null },
+      playerAnswers: initialAnswers,
       options: [],
-      choices: { teamA: null, teamB: null },
+      playerChoices: {},
       scores: { teamA: 0, teamB: 0 },
     } as Round1Data;
     sendRound1Question(roomCode);
@@ -279,36 +316,29 @@ export function initSocketServer(httpServer: HttpServer): void {
     const question = data.questions[data.currentIndex];
     if (!question) return;
 
-    // reset per-question state
-    data.suggested = { teamA: null, teamB: null };
+    // Reset for new question
+    const initialAnswers: Record<string, string | null> = {};
+    room.players.forEach((p) => { initialAnswers[p.id] = null; });
+    data.playerAnswers = initialAnswers;
     data.options = [];
-    data.choices = { teamA: null, teamB: null };
+    data.playerChoices = {};
 
-    // notify all about the question and active suggesters
+    // Phase 1: prompt all players to write their own answer
     io.to(roomCode).emit("showQuestion", {
       question,
       questionNumber: data.currentIndex + 1,
       totalQuestions: data.questions.length,
-      activePlayers: {
-        teamA: getQuestionActor(roomCode, "teamA", data.currentIndex)?.id ?? null,
-        teamB: getQuestionActor(roomCode, "teamB", data.currentIndex)?.id ?? null,
-      },
+      phase: "write_answer",
     });
 
-    // prompt the question actors to submit their suggestion
-    const actorA = getQuestionActor(roomCode, "teamA", data.currentIndex);
-    const actorB = getQuestionActor(roomCode, "teamB", data.currentIndex);
-    if (actorA) io.to(actorA.id).emit("promptRound1Suggestion", { question, questionNumber: data.currentIndex + 1, totalQuestions: data.questions.length });
-    if (actorB) io.to(actorB.id).emit("promptRound1Suggestion", { question, questionNumber: data.currentIndex + 1, totalQuestions: data.questions.length });
-
-    // start a suggestion timeout (fallback to auto-fill)
+    // Auto-suggest timeout: fallback to empty answers
     if (suggestionTimers.has(roomCode)) {
       clearTimeout(suggestionTimers.get(roomCode)!);
       suggestionTimers.delete(roomCode);
     }
     suggestionTimers.set(roomCode, setTimeout(() => {
       finalizeRound1Options(roomCode);
-    }, 10000));
+    }, 15000));
   }
 
   function finalizeRound1Options(roomCode: string) {
@@ -317,56 +347,56 @@ export function initSocketServer(httpServer: HttpServer): void {
     const data = room.roundData as Round1Data;
     if (!data || data.type !== "round1") return;
     const question = data.questions[data.currentIndex];
-    const correct = question.options[question.correct];
 
     const optsSet = new Set<string>();
-    optsSet.add(correct);
-    if (data.suggested.teamA) optsSet.add(data.suggested.teamA);
-    if (data.suggested.teamB) optsSet.add(data.suggested.teamB);
-    const pool = shuffle(fakeAnswers);
-    for (const f of pool) {
+    optsSet.add(question.correct);
+    for (const answer of Object.values(data.playerAnswers)) {
+      if (answer && answer.trim()) optsSet.add(answer.trim());
+    }
+    // Pad with some football-related distractors if needed (min 4)
+    const extra = ["مورينيو", "رونالدو جنيور", "مبابي", "ليفاندوفسكي", "كان آغويرو", "مالديني"];
+    for (const e of shuffle(extra)) {
       if (optsSet.size >= 4) break;
-      optsSet.add(f);
+      optsSet.add(e);
     }
     const options = shuffle(Array.from(optsSet));
     data.options = options;
 
-    // clear suggestion timer
+    // Clear suggestion timer
     if (suggestionTimers.has(roomCode)) {
       clearTimeout(suggestionTimers.get(roomCode)!);
       suggestionTimers.delete(roomCode);
     }
 
-    // emit options to each player and indicate who can choose
-    room.players.forEach((player) => {
-      const team = player.team;
-      const canChoose = team != null && (player.id === getGuessActor(roomCode, team)?.id || room.gameMode === "1v1");
-      io.to(player.id).emit("showRound1Options", {
-        question,
-        options,
-        canChoose,
-        questionNumber: data.currentIndex + 1,
-        totalQuestions: data.questions.length,
-      });
+    // Phase 2: emit options to all players for choosing
+    io.to(roomCode).emit("showRound1Options", {
+      question,
+      options,
+      questionNumber: data.currentIndex + 1,
+      totalQuestions: data.questions.length,
     });
 
-    // start choice timeout
+    // Choice timeout
     if (choiceTimers.has(roomCode)) {
       clearTimeout(choiceTimers.get(roomCode)!);
       choiceTimers.delete(roomCode);
     }
     choiceTimers.set(roomCode, setTimeout(() => {
-      // auto-resolve missing choices as incorrect
-      const d = room.roundData as Round1Data;
-      const correctIndex = d.options.indexOf(correct);
-      for (const t of ["teamA", "teamB"] as const) {
-        if (d.choices[t] === null) {
-          d.choices[t] = -1;
-          io.to(roomCode).emit("round1ChoiceResult", { team: t, choiceIndex: -1, isCorrect: false, correctOptionIndex: correctIndex });
+      const r = getRoom(roomCode);
+      if (!r) return;
+      const d = r.roundData as Round1Data;
+      const correctIndex = d.options.indexOf(d.questions[d.currentIndex].correct);
+      for (const p of r.players) {
+        if (d.playerChoices[p.id] === null || d.playerChoices[p.id] === undefined) {
+          d.playerChoices[p.id] = -1;
+          io.to(roomCode).emit("round1ChoiceResult", { playerId: p.id, playerName: p.name, team: p.team, choiceIndex: -1, isCorrect: false, correctOptionIndex: correctIndex });
         }
       }
-      proceedRound1AfterChoices(roomCode);
-    }, 15000));
+      // Check if all players have chosen after auto-fill
+      if (r.players.every((pl) => d.playerChoices[pl.id] !== null && d.playerChoices[pl.id] !== undefined)) {
+        proceedRound1AfterChoices(roomCode);
+      }
+    }, 12000));
   }
 
   function proceedRound1AfterChoices(roomCode: string) {
@@ -374,26 +404,28 @@ export function initSocketServer(httpServer: HttpServer): void {
     if (!room) return;
     const data = room.roundData as Round1Data;
     if (!data) return;
-    if (data.choices.teamA === null || data.choices.teamB === null) return;
+    // Wait until all players have made a choice
+    const allChosen = room.players.every((p) => data.playerChoices[p.id] !== null && data.playerChoices[p.id] !== undefined);
+    if (!allChosen) return;
 
-    // clear choice timer
     if (choiceTimers.has(roomCode)) {
       clearTimeout(choiceTimers.get(roomCode)!);
       choiceTimers.delete(roomCode);
     }
 
     const question = data.questions[data.currentIndex];
-    const correct = question.options[question.correct];
-    const correctIndex = data.options.indexOf(correct);
+    const correctIndex = data.options.indexOf(question.correct);
 
-    // award points
-    for (const t of ["teamA", "teamB"] as const) {
-      const choice = data.choices[t]!;
+    // Award points per player
+    for (const player of room.players) {
+      const choice = data.playerChoices[player.id] ?? -1;
       const isCorrect = choice === correctIndex;
-      if (isCorrect) data.scores[t] += room.settings.pointsPerCorrect;
+      if (isCorrect && player.team) {
+        data.scores[player.team] += room.settings.triviaPoints;
+      }
     }
 
-    // emit round end or next question
+    // Move to next question or round end
     data.currentIndex += 1;
     if (data.currentIndex >= data.questions.length) {
       room.teamAScore += data.scores.teamA;
@@ -409,6 +441,9 @@ export function initSocketServer(httpServer: HttpServer): void {
     }
   }
 
+  // =================================================================
+  // ROUND 2: Drawing & Guessing (15s timer)
+  // =================================================================
   function loadRound2(roomCode: string) {
     const room = getRoom(roomCode);
     if (!room) return;
@@ -423,16 +458,24 @@ export function initSocketServer(httpServer: HttpServer): void {
     emitDrawingRound(roomCode);
   }
 
+  // =================================================================
+  // ROUND 3: Movies/Games/Geography Trivia — SAME AS ROUND 1
+  // =================================================================
   function loadRound3(roomCode: string) {
     const room = getRoom(roomCode);
     if (!room) return;
+    const questions = shuffle(triviaQuestions).slice(0, 4);
+    const initialAnswers: Record<string, string | null> = {};
+    room.players.forEach((p) => { initialAnswers[p.id] = null; });
+
     room.roundData = {
       type: "round3",
-      questions: shuffle(weirdQuestions).slice(0, 4),
+      questions,
       currentIndex: 0,
-      answers: { teamA: null, teamB: null },
+      playerAnswers: initialAnswers,
+      options: [],
+      playerChoices: {},
       scores: { teamA: 0, teamB: 0 },
-      currentOptions: [],
     } as Round3Data;
     sendRound3Question(roomCode);
   }
@@ -443,21 +486,124 @@ export function initSocketServer(httpServer: HttpServer): void {
     const data = room.roundData as Round3Data;
     const question = data.questions[data.currentIndex];
     if (!question) return;
-    const options = shuffle([question.correct, ...shuffle(fakeAnswers).slice(0, 3)]);
-    data.currentOptions = options;
-    data.answers = { teamA: null, teamB: null };
-    io.to(roomCode).emit("showWeirdQuestion", {
+
+    const initialAnswers: Record<string, string | null> = {};
+    room.players.forEach((p) => { initialAnswers[p.id] = null; });
+    data.playerAnswers = initialAnswers;
+    data.options = [];
+    data.playerChoices = {};
+
+    io.to(roomCode).emit("showQuestionRound3", {
+      question,
+      questionNumber: data.currentIndex + 1,
+      totalQuestions: data.questions.length,
+      phase: "write_answer",
+    });
+
+    if (suggestionTimers.has(roomCode)) {
+      clearTimeout(suggestionTimers.get(roomCode)!);
+      suggestionTimers.delete(roomCode);
+    }
+    suggestionTimers.set(roomCode, setTimeout(() => {
+      finalizeRound3Options(roomCode);
+    }, 15000));
+  }
+
+  function finalizeRound3Options(roomCode: string) {
+    const room = getRoom(roomCode);
+    if (!room) return;
+    const data = room.roundData as Round3Data;
+    if (!data || data.type !== "round3") return;
+    const question = data.questions[data.currentIndex];
+
+    const optsSet = new Set<string>();
+    optsSet.add(question.correct);
+    for (const answer of Object.values(data.playerAnswers)) {
+      if (answer && answer.trim()) optsSet.add(answer.trim());
+    }
+    const extra = ["توتانخامن", "معرفتش", "مشهور", "معروف"];
+    for (const e of shuffle(extra)) {
+      if (optsSet.size >= 4) break;
+      optsSet.add(e);
+    }
+    const options = shuffle(Array.from(optsSet));
+    data.options = options;
+
+    if (suggestionTimers.has(roomCode)) {
+      clearTimeout(suggestionTimers.get(roomCode)!);
+      suggestionTimers.delete(roomCode);
+    }
+
+    io.to(roomCode).emit("showRound3Options", {
       question,
       options,
       questionNumber: data.currentIndex + 1,
       totalQuestions: data.questions.length,
-      activePlayers: {
-        teamA: getQuestionActor(roomCode, "teamA", data.currentIndex)?.id ?? null,
-        teamB: getQuestionActor(roomCode, "teamB", data.currentIndex)?.id ?? null,
-      },
     });
+
+    if (choiceTimers.has(roomCode)) {
+      clearTimeout(choiceTimers.get(roomCode)!);
+      choiceTimers.delete(roomCode);
+    }
+    choiceTimers.set(roomCode, setTimeout(() => {
+      const r = getRoom(roomCode);
+      if (!r) return;
+      const d = r.roundData as Round3Data;
+      const correctIndex = d.options.indexOf(d.questions[d.currentIndex].correct);
+      for (const p of r.players) {
+        if (d.playerChoices[p.id] === null || d.playerChoices[p.id] === undefined) {
+          d.playerChoices[p.id] = -1;
+          io.to(roomCode).emit("round3ChoiceResult", { playerId: p.id, playerName: p.name, team: p.team, choiceIndex: -1, isCorrect: false, correctOptionIndex: correctIndex });
+        }
+      }
+      if (r.players.every((pl) => d.playerChoices[pl.id] !== null && d.playerChoices[pl.id] !== undefined)) {
+        proceedRound3AfterChoices(roomCode);
+      }
+    }, 12000));
   }
 
+  function proceedRound3AfterChoices(roomCode: string) {
+    const room = getRoom(roomCode);
+    if (!room) return;
+    const data = room.roundData as Round3Data;
+    if (!data) return;
+    const allChosen = room.players.every((p) => data.playerChoices[p.id] !== null && data.playerChoices[p.id] !== undefined);
+    if (!allChosen) return;
+
+    if (choiceTimers.has(roomCode)) {
+      clearTimeout(choiceTimers.get(roomCode)!);
+      choiceTimers.delete(roomCode);
+    }
+
+    const question = data.questions[data.currentIndex];
+    const correctIndex = data.options.indexOf(question.correct);
+
+    for (const player of room.players) {
+      const choice = data.playerChoices[player.id] ?? -1;
+      const isCorrect = choice === correctIndex;
+      if (isCorrect && player.team) {
+        data.scores[player.team] += room.settings.triviaPoints;
+      }
+    }
+
+    data.currentIndex += 1;
+    if (data.currentIndex >= data.questions.length) {
+      room.teamAScore += data.scores.teamA;
+      room.teamBScore += data.scores.teamB;
+      io.to(roomCode).emit("roundEnd", {
+        round: 3,
+        scores: data.scores,
+        totalScores: { teamA: room.teamAScore, teamB: room.teamBScore },
+      });
+      setTimeout(() => loadRound(roomCode, 4), 4000);
+    } else {
+      setTimeout(() => sendRound3Question(roomCode), 2200);
+    }
+  }
+
+  // =================================================================
+  // ROUND 4: Spy Master (Codenames)
+  // =================================================================
   function loadRound4(roomCode: string) {
     const room = getRoom(roomCode);
     if (!room) return;
@@ -490,6 +636,9 @@ export function initSocketServer(httpServer: HttpServer): void {
     io.to(roomCode).emit("playersUpdate", room.players);
   }
 
+  // =================================================================
+  // SOCKET EVENTS
+  // =================================================================
   io.on("connection", (socket) => {
     logger.info({ socketId: socket.id }, "Player connected");
 
@@ -618,57 +767,65 @@ export function initSocketServer(httpServer: HttpServer): void {
       if (!room || room.creatorId !== socket.id) return;
       const reason = validateTeamSetup(roomCode);
       if (reason) { socket.emit("error", reason); return; }
-      // mark all players as ready so startGame validation passes
       room.players.forEach((p) => (p.isReady = true));
       io.to(roomCode).emit("playersUpdate", room.players);
       startGame(roomCode);
     });
 
-    socket.on("submitRound1Suggestion", ({ roomCode, suggestion }: { roomCode: string; suggestion: string }) => {
+    // =================================================================
+    // ROUND 1: Player-written answer
+    // =================================================================
+    socket.on("submitPlayerAnswer", ({ roomCode, answer }: { roomCode: string; answer: string }) => {
       const room = getRoom(roomCode);
       if (!room || room.currentRound !== 1) return;
-      const team = getTeamFromSocket(roomCode, socket.id);
-      if (!team) return;
       const data = room.roundData as Round1Data;
-      const expected = getQuestionActor(roomCode, team, data.currentIndex)?.id;
-      if (expected !== socket.id) { socket.emit("error", "ليس دورك لتقديم الاقتراح الآن."); return; }
-      if (data.suggested[team] !== null) return;
-      data.suggested[team] = suggestion.trim();
-      io.to(roomCode).emit("round1SuggestionReceived", { team, suggestion: data.suggested[team], playerName: getPlayerOrNull(roomCode, socket.id)?.name ?? "لاعب" });
-      if (data.suggested.teamA !== null && data.suggested.teamB !== null) {
+      if (!data || data.type !== "round1") return;
+      data.playerAnswers[socket.id] = answer.trim() || null;
+
+      const allAnswered = room.players.every((p) => data.playerAnswers[p.id] !== null && data.playerAnswers[p.id] !== undefined);
+      if (allAnswered) {
+        if (suggestionTimers.has(roomCode)) {
+          clearTimeout(suggestionTimers.get(roomCode)!);
+          suggestionTimers.delete(roomCode);
+        }
         finalizeRound1Options(roomCode);
       }
     });
 
-    socket.on("submitAnswer", ({ roomCode, answerIndex }: { roomCode: string; answerIndex: number }) => {
+    socket.on("submitPlayerChoice", ({ roomCode, choiceIndex }: { roomCode: string; choiceIndex: number }) => {
       const room = getRoom(roomCode);
-      if (!room) return;
-      // Round 1 choice handling (after options emitted)
-      if (room.currentRound === 1) {
-        const data = room.roundData as Round1Data;
-        if (!data || !data.options || data.options.length === 0) return;
-        const team = getTeamFromSocket(roomCode, socket.id);
-        if (!team) return;
-        // only guess actor may choose (or in 1v1 anyone)
-        if (getGuessActor(roomCode, team)?.id !== socket.id && room.gameMode !== "1v1") { socket.emit("error", "ليس دورك للتخمين الآن."); return; }
-        if (data.choices[team] !== null) return;
-        data.choices[team] = answerIndex;
-        const question = data.questions[data.currentIndex];
-        const correct = question.options[question.correct];
-        const correctIndex = data.options.indexOf(correct);
-        const isCorrect = answerIndex === correctIndex;
-        if (isCorrect) data.scores[team] += room.settings.pointsPerCorrect;
-        io.to(roomCode).emit("round1ChoiceResult", { team, choiceIndex: answerIndex, isCorrect, correctOptionIndex: correctIndex, playerName: getPlayerOrNull(roomCode, socket.id)?.name ?? "لاعب" });
-        // if both teams have chosen, proceed
-        if (data.choices.teamA !== null && data.choices.teamB !== null) {
-          proceedRound1AfterChoices(roomCode);
-        }
-        return;
-      }
+      if (!room || room.currentRound !== 1) return;
+      const data = room.roundData as Round1Data;
+      if (!data || data.type !== "round1") return;
+      if (!data.options.length) return;
+      const player = room.players.find((p) => p.id === socket.id);
+      if (!player) return;
+      if (data.playerChoices[socket.id] !== null && data.playerChoices[socket.id] !== undefined) return;
 
-      // non-round1 behavior: ignore or handle other rounds elsewhere
+      const correct = data.questions[data.currentIndex].correct;
+      const correctIndex = data.options.indexOf(correct);
+      const isCorrect = choiceIndex === correctIndex;
+
+      data.playerChoices[socket.id] = choiceIndex;
+
+      io.to(roomCode).emit("round1ChoiceResult", {
+        playerId: socket.id,
+        playerName: player.name,
+        team: player.team,
+        choiceIndex,
+        isCorrect,
+        correctOptionIndex: correctIndex,
+      });
+
+      const allChosen = room.players.every((p) => data.playerChoices[p.id] !== null && data.playerChoices[p.id] !== undefined);
+      if (allChosen) {
+        proceedRound1AfterChoices(roomCode);
+      }
     });
 
+    // =================================================================
+    // ROUND 2: Drawing
+    // =================================================================
     socket.on("submitDrawing", ({ roomCode, drawingData }: { roomCode: string; drawingData: string }) => {
       const room = getRoom(roomCode);
       if (!room || room.currentRound !== 2) return;
@@ -694,8 +851,13 @@ export function initSocketServer(httpServer: HttpServer): void {
       const isCorrect = guess.trim() === data.word;
       data.guesses[team] = isCorrect;
       if (isCorrect) { if (team === "teamA") room.teamAScore += room.settings.drawingPoints; else room.teamBScore += room.settings.drawingPoints; }
-      io.to(roomCode).emit("guessResult", { team, isCorrect, correctWord: data.word, playerName: getPlayerOrNull(roomCode, socket.id)?.name ?? "لاعب" });
+
+      // Cancel guess timer if both have guessed
       if (data.guesses.teamA !== null && data.guesses.teamB !== null) {
+        if (guessTimers.has(roomCode)) {
+          clearTimeout(guessTimers.get(roomCode)!);
+          guessTimers.delete(roomCode);
+        }
         io.to(roomCode).emit("roundEnd", {
           round: 2,
           scores: {
@@ -706,40 +868,63 @@ export function initSocketServer(httpServer: HttpServer): void {
         });
         setTimeout(() => loadRound(roomCode, 3), 4000);
       }
+      io.to(roomCode).emit("guessResult", { team, isCorrect, correctWord: data.word, playerName: getPlayerOrNull(roomCode, socket.id)?.name ?? "لاعب" });
     });
 
-    socket.on("submitWeirdAnswer", ({ roomCode, answer }: { roomCode: string; answer: string }) => {
+    // =================================================================
+    // ROUND 3: Trivia (same system as Round 1)
+    // =================================================================
+    socket.on("submitPlayerAnswerRound3", ({ roomCode, answer }: { roomCode: string; answer: string }) => {
       const room = getRoom(roomCode);
       if (!room || room.currentRound !== 3) return;
-      const team = getTeamFromSocket(roomCode, socket.id);
-      if (!team) return;
       const data = room.roundData as Round3Data;
-      const question = data.questions[data.currentIndex];
-      if (!question) return;
-      const expected = getQuestionActor(roomCode, team, data.currentIndex)?.id;
-      if (expected !== socket.id) { socket.emit("error", "ليس دورك للإجابة الآن."); return; }
-      if (data.answers[team] !== null) return;
-      const isCorrect = answer === question.correct;
-      data.answers[team] = answer;
-      if (isCorrect) data.scores[team] += room.settings.weirdPoints;
-      io.to(roomCode).emit("weirdTeamAnswered", { team, answer, isCorrect, playerName: getPlayerOrNull(roomCode, socket.id)?.name ?? "لاعب" });
-      if (data.answers.teamA !== null && data.answers.teamB !== null) {
-        data.currentIndex += 1;
-        if (data.currentIndex >= data.questions.length) {
-          room.teamAScore += data.scores.teamA;
-          room.teamBScore += data.scores.teamB;
-          io.to(roomCode).emit("roundEnd", {
-            round: 3,
-            scores: data.scores,
-            totalScores: { teamA: room.teamAScore, teamB: room.teamBScore },
-          });
-          setTimeout(() => loadRound(roomCode, 4), 4000);
-        } else {
-          setTimeout(() => sendRound3Question(roomCode), 2200);
+      if (!data || data.type !== "round3") return;
+      data.playerAnswers[socket.id] = answer.trim() || null;
+
+      const allAnswered = room.players.every((p) => data.playerAnswers[p.id] !== null && data.playerAnswers[p.id] !== undefined);
+      if (allAnswered) {
+        if (suggestionTimers.has(roomCode)) {
+          clearTimeout(suggestionTimers.get(roomCode)!);
+          suggestionTimers.delete(roomCode);
         }
+        finalizeRound3Options(roomCode);
       }
     });
 
+    socket.on("submitPlayerChoiceRound3", ({ roomCode, choiceIndex }: { roomCode: string; choiceIndex: number }) => {
+      const room = getRoom(roomCode);
+      if (!room || room.currentRound !== 3) return;
+      const data = room.roundData as Round3Data;
+      if (!data || data.type !== "round3") return;
+      if (!data.options.length) return;
+      const player = room.players.find((p) => p.id === socket.id);
+      if (!player) return;
+      if (data.playerChoices[socket.id] !== null && data.playerChoices[socket.id] !== undefined) return;
+
+      const correct = data.questions[data.currentIndex].correct;
+      const correctIndex = data.options.indexOf(correct);
+      const isCorrect = choiceIndex === correctIndex;
+
+      data.playerChoices[socket.id] = choiceIndex;
+
+      io.to(roomCode).emit("round3ChoiceResult", {
+        playerId: socket.id,
+        playerName: player.name,
+        team: player.team,
+        choiceIndex,
+        isCorrect,
+        correctOptionIndex: correctIndex,
+      });
+
+      const allChosen = room.players.every((p) => data.playerChoices[p.id] !== null && data.playerChoices[p.id] !== undefined);
+      if (allChosen) {
+        proceedRound3AfterChoices(roomCode);
+      }
+    });
+
+    // =================================================================
+    // ROUND 4: Spy Master
+    // =================================================================
     socket.on("submitSpyClue", ({ roomCode, clue }: { roomCode: string; clue: string }) => {
       const room = getRoom(roomCode);
       if (!room || room.currentRound !== 4) return;
@@ -779,6 +964,9 @@ export function initSocketServer(httpServer: HttpServer): void {
       }
     });
 
+    // =================================================================
+    // DISCONNECT
+    // =================================================================
     socket.on("disconnect", () => {
       logger.info({ socketId: socket.id }, "Player disconnected");
       const roomCode = playerRoomMap.get(socket.id);
@@ -794,8 +982,6 @@ export function initSocketServer(httpServer: HttpServer): void {
       io.to(roomCode).emit("systemMessage", `غادر ${left.name} الغرفة`);
 
       if (room.players.length === 0) {
-        // Give a 60-second grace period before deleting the empty room,
-        // so friends can still join if creator briefly disconnects.
         const timer = setTimeout(() => {
           const r = getRoom(roomCode);
           if (r && r.players.length === 0) {
@@ -808,7 +994,6 @@ export function initSocketServer(httpServer: HttpServer): void {
         return;
       }
 
-      // Cancel any pending deletion if someone is still in the room
       if (roomDeletionTimers.has(roomCode)) {
         clearTimeout(roomDeletionTimers.get(roomCode)!);
         roomDeletionTimers.delete(roomCode);

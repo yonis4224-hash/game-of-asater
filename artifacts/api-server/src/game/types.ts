@@ -16,9 +16,9 @@ export interface Player {
 export interface RoomSettings {
   pointsPerCorrect: number;
   drawingPoints: number;
-  weirdPoints: number;
+  triviaPoints: number;
   spyPoints: number;
-  timeLimit: number;
+  guessTimeLimit: number;
 }
 
 export interface Room {
@@ -37,16 +37,21 @@ export interface Room {
 
 export type RoundData = Round1Data | Round2Data | Round3Data | Round4Data;
 
+/** Round 1: Football trivia — all players write their own answer, then everyone picks from all answers + correct */
 export interface Round1Data {
   type: "round1";
-  questions: SportsQuestion[];
+  questions: TriviaQuestion[];
   currentIndex: number;
-  suggested: { teamA: string | null; teamB: string | null };
+  // Phase 1: each player writes their own answer
+  playerAnswers: Record<string, string | null>;
+  // Phase 2: shuffled options = all unique player answers + correct answer
   options: string[];
-  choices: { teamA: number | null; teamB: number | null };
+  // Phase 3: each player picks an option index
+  playerChoices: Record<string, number | null>;
   scores: { teamA: number; teamB: number };
 }
 
+/** Round 2: Drawing — drawer draws, guesser guesses with 15s timer */
 export interface Round2Data {
   type: "round2";
   word: string;
@@ -55,15 +60,18 @@ export interface Round2Data {
   wordLength: number;
 }
 
+/** Round 3: Movies/Games/Geography trivia — same system as Round 1 */
 export interface Round3Data {
   type: "round3";
-  questions: WeirdQuestion[];
+  questions: TriviaQuestion[];
   currentIndex: number;
-  answers: { teamA: string | null; teamB: string | null };
+  playerAnswers: Record<string, string | null>;
+  options: string[];
+  playerChoices: Record<string, number | null>;
   scores: { teamA: number; teamB: number };
-  currentOptions: string[];
 }
 
+/** Round 4: Codenames (Spy Master) — clue giver gives hint, guesser guesses */
 export interface Round4Data {
   type: "round4";
   word: string;
@@ -72,13 +80,7 @@ export interface Round4Data {
   guesses: { teamA: boolean | null; teamB: boolean | null };
 }
 
-export interface SportsQuestion {
-  q: string;
-  options: string[];
-  correct: number;
-}
-
-export interface WeirdQuestion {
+export interface TriviaQuestion {
   q: string;
   correct: string;
 }

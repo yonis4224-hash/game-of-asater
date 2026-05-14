@@ -9,18 +9,12 @@ export interface Player {
 export interface RoomSettings {
   pointsPerCorrect: number;
   drawingPoints: number;
-  weirdPoints: number;
+  triviaPoints: number;
   spyPoints: number;
-  timeLimit: number;
+  guessTimeLimit: number;
 }
 
-export interface SportsQuestion {
-  q: string;
-  options: string[];
-  correct: number;
-}
-
-export interface WeirdQuestion {
+export interface TriviaQuestion {
   q: string;
   correct: string;
 }

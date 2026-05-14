@@ -14,7 +14,7 @@ interface RoomPageProps {
 
 export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreator, onGameStart, onKicked, onNewCreator }: RoomPageProps) {
   const [players, setPlayers] = useState<Player[]>([]);
-  const [settings, setSettings] = useState<RoomSettings>({ pointsPerCorrect: 10, drawingPoints: 20, weirdPoints: 2, spyPoints: 30, timeLimit: 30 });
+  const [settings, setSettings] = useState<RoomSettings>({ pointsPerCorrect: 10, drawingPoints: 20, triviaPoints: 10, spyPoints: 30, guessTimeLimit: 15 });
   const [isCreator, setIsCreator] = useState(initialIsCreator);
   const [gameMode, setGameMode] = useState<"2v2" | "1v1">("2v2");
   const [myTeam, setMyTeam] = useState<Team | null>(null);
@@ -274,10 +274,10 @@ export default function RoomPage({ roomCode, playerId, isCreator: initialIsCreat
 
               <div className="grid grid-cols-2 gap-2 mb-3">
                 {([
-                  { key: "pointsPerCorrect", label: "نقاط الإجابة الصحيحة" },
-                  { key: "drawingPoints", label: "نقاط الرسم" },
-                  { key: "weirdPoints", label: "نقاط الألغاز" },
-                  { key: "spyPoints", label: "نقاط الكود السري" },
+                  { key: "pointsPerCorrect", label: "نقاط الجولة 1" },
+                  { key: "drawingPoints", label: "نقاط الجولة 2" },
+                  { key: "triviaPoints", label: "نقاط الجولة 3" },
+                  { key: "spyPoints", label: "نقاط الجولة 4" },
                 ] as const).map(({ key, label }) => (
                   <div key={key}>
                     <label className="text-white/60 text-xs block mb-1">{label}</label>
