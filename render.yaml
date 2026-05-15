@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: game-of-asater-api
+    env: node
+    region: frankfurt
+    plan: free
+    branch: main
+    rootDir: artifacts/api-server
+    buildCommand: npm install && node build.mjs
+    startCommand: node --enable-source-maps dist/index.mjs
+    healthCheckPath: /api/healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22
