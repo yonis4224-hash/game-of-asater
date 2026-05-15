@@ -157,7 +157,7 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined, initialRoomCode
           <span>الجولة 1: أسئلة رياضية</span>
           <span>الجولة 2: رسم وتخمين</span>
           <span>الجولة 3: ألغاز</span>
-          <span>الجولة 4: كود سري</span>
+          <span>الجولة 4: كود نيمز</span>
         </div>
       </motion.div>
     </div></>

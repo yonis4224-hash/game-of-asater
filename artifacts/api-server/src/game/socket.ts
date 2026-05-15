@@ -1101,11 +1101,25 @@ export function initSocketServer(httpServer: HttpServer): void {
     socket.on("forceStartGame", ({ roomCode }: { roomCode: string }) => {
       const room = getRoom(roomCode);
       if (!room || room.creatorId !== socket.id) return;
-      const reason = validateTeamSetup(roomCode);
-      if (reason) { socket.emit("error", reason); return; }
+      // Lenient check: just need at least 1 player per team
+      const teamA = getTeamPlayers(room.players, "teamA");
+      const teamB = getTeamPlayers(room.players, "teamB");
+      if (teamA.length === 0 || teamB.length === 0) {
+        socket.emit("error", "يجب أن يكون لكل فريق لاعب واحد على الأقل قبل البدء.");
+        return;
+      }
       room.players.forEach((p) => (p.isReady = true));
       io.to(roomCode).emit("playersUpdate", room.players);
-      startGame(roomCode);
+      room.gameStarted = true;
+      room.currentRound = 1;
+      room.teamAScore = 0;
+      room.teamBScore = 0;
+      io.to(roomCode).emit("gameStarted", {
+        roomCode,
+        teams: room.teams,
+        gameMode: room.gameMode,
+      });
+      loadRound(roomCode, 1);
     });
 
     // =================================================================
