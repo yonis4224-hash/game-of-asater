@@ -139,6 +139,34 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 215, 0, 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 215, 0, 0.5);
+}
+
+/* Selection styling */
+::selection {
+  background: rgba(255, 215, 0, 0.3);
+  color: #fff;
+}
+
+/* Subtle background animation */
+@keyframes bgShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -147,6 +175,132 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
     direction: rtl;
+    background: linear-gradient(-45deg, #0f0c29, #1a1a3e, #302b63, #24243e, #1a1a3e);
+    background-size: 400% 400%;
+    animation: bgShift 15s ease infinite;
+    min-height: 100vh;
+  }
+
+  /* Glassmorphism card base */
+  .glass-card {
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 215, 0, 0.15);
+    border-radius: 1rem;
+  }
+
+  .glass-card-strong {
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: 1rem;
+  }
+
+  /* Gold glow effect */
+  .gold-glow {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.15), 0 0 40px rgba(255, 215, 0, 0.05);
+  }
+
+  .gold-glow-hover:hover {
+    box-shadow: 0 0 25px rgba(255, 215, 0, 0.25), 0 0 50px rgba(255, 215, 0, 0.1);
+    transition: box-shadow 0.3s ease;
+  }
+
+  /* Gradient text */
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #FFD700, #FFA500, #FFD700);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Codenames cell style */
+  .cn-cell {
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cn-cell::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.05) 100%);
+    pointer-events: none;
+  }
+
+  /* Button pulse animation */
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+    50% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.6); }
+  }
+
+  .btn-gold {
+    background: linear-gradient(135deg, #FFD700, #FF8C00);
+    color: #000;
+    font-weight: 700;
+    transition: all 0.2s ease;
+  }
+
+  .btn-gold:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4);
+  }
+
+  .btn-gold:active {
+    transform: translateY(0);
+  }
+
+  /* Input styling */
+  input, textarea, select {
+    transition: all 0.2s ease;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    border-color: rgba(255, 215, 0, 0.7) !important;
+    box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.1) !important;
+    outline: none;
+  }
+
+  /* Animated background particles - pure CSS */
+  .bg-particles {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .bg-particles::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-image:
+      radial-gradient(2px 2px at 10% 20%, rgba(255,215,0,0.15), transparent),
+      radial-gradient(2px 2px at 20% 40%, rgba(255,215,0,0.1), transparent),
+      radial-gradient(2px 2px at 30% 10%, rgba(255,215,0,0.15), transparent),
+      radial-gradient(2px 2px at 40% 60%, rgba(255,215,0,0.1), transparent),
+      radial-gradient(2px 2px at 50% 30%, rgba(255,215,0,0.12), transparent),
+      radial-gradient(2px 2px at 60% 70%, rgba(255,215,0,0.08), transparent),
+      radial-gradient(2px 2px at 70% 50%, rgba(255,215,0,0.15), transparent),
+      radial-gradient(2px 2px at 80% 80%, rgba(255,215,0,0.1), transparent),
+      radial-gradient(2px 2px at 90% 15%, rgba(255,215,0,0.12), transparent),
+      radial-gradient(2px 2px at 15% 85%, rgba(255,215,0,0.08), transparent),
+      radial-gradient(3px 3px at 25% 55%, rgba(255,215,0,0.1), transparent),
+      radial-gradient(3px 3px at 45% 25%, rgba(255,215,0,0.08), transparent),
+      radial-gradient(3px 3px at 65% 75%, rgba(255,215,0,0.12), transparent),
+      radial-gradient(3px 3px at 85% 45%, rgba(255,215,0,0.1), transparent);
+    background-size: 200% 200%;
+    animation: particleFloat 20s ease-in-out infinite;
+  }
+
+  @keyframes particleFloat {
+    0% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-20px) scale(1.05); }
+    100% { transform: translateY(0) scale(1); }
   }
 }
 

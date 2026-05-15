@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import LobbyPage from "@/pages/LobbyPage";
 import RoomPage from "@/pages/RoomPage";
 import GamePage from "@/pages/GamePage";
-import type { Team } from "@/types/game";
+import type { Team, GameMode } from "@/types/game";
 import { getSocket } from "@/lib/socket";
 
 type Screen = "lobby" | "room" | "game";
@@ -18,12 +18,14 @@ interface GameState {
   isCreator: boolean;
   myTeam: Team | null;
   teams: Record<Team, TeamProfile>;
+  gameMode: GameMode;
 }
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("lobby");
   const [gameState, setGameState] = useState<GameState>({
     roomCode: "", playerId: "", isCreator: false, myTeam: null,
+    gameMode: { type: "team", teamSize: 4 },
     teams: {
       teamA: { name: "\u0627\u0644\u0623\u0631\u0633\u0646\u0627\u0644", color: "#ef4444" },
       teamB: { name: "\u0645\u0627\u0646\u0633\u064a\u062a\u064a", color: "#3b82f6" },
@@ -39,7 +41,6 @@ export default function App() {
     }
     document.documentElement.dir = "rtl";
     document.documentElement.lang = "ar";
-    // Pre-connect socket eagerly so it's ready when the user clicks
     getSocket();
   }, []);
 
@@ -59,21 +60,21 @@ export default function App() {
 
   useEffect(() => {
     const socket = getSocket();
-    socket.on("roomMeta", (meta: { teams: Record<Team, { name: string; color: string }> }) => {
-      setGameState((s) => ({ ...s, teams: meta.teams }));
+    socket.on("roomMeta", (meta: { gameMode: GameMode; teams: Record<Team, { name: string; color: string }> }) => {
+      setGameState((s) => ({ ...s, teams: meta.teams, gameMode: meta.gameMode }));
     });
     return () => { socket.off("roomMeta"); };
   }, []);
 
   const handleKicked = () => {
     getSocket().disconnect();
-    setGameState({ roomCode: "", playerId: "", isCreator: false, myTeam: null, teams: gameState.teams });
+    setGameState((s) => ({ ...s, roomCode: "", playerId: "", isCreator: false, myTeam: null }));
     setScreen("lobby");
     window.history.replaceState({}, "", window.location.pathname);
   };
 
   const handleGameOver = () => {
-    setGameState({ roomCode: "", playerId: "", isCreator: false, myTeam: null, teams: gameState.teams });
+    setGameState((s) => ({ ...s, roomCode: "", playerId: "", isCreator: false, myTeam: null }));
     setScreen("lobby");
     window.history.replaceState({}, "", window.location.pathname);
   };
@@ -106,9 +107,14 @@ export default function App() {
         myTeam={gameState.myTeam}
         teamProfiles={gameState.teams}
         onGameOver={handleGameOver}
+        gameMode={gameState.gameMode}
       />
     );
   }
 
   return null;
+}
+
+export function BgParticles() {
+  return <div className="bg-particles" />;
 }

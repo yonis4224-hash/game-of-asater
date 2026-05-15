@@ -1,4 +1,4 @@
-import type { Room, RoomSettings } from "./types";
+import type { GameMode, Room, RoomSettings } from "./types";
 
 const rooms = new Map<string, Room>();
 
@@ -7,7 +7,9 @@ const defaultSettings: RoomSettings = {
   drawingPoints: 20,
   triviaPoints: 10,
   spyPoints: 30,
+  codenamesBonus: 10,
   guessTimeLimit: 15,
+  questionTimeLimit: 20,
 };
 
 export function createRoom(
@@ -31,7 +33,7 @@ export function createRoom(
     currentRound: 1,
     teamAScore: 0,
     teamBScore: 0,
-    gameMode: "4v4",
+    gameMode: { type: "team", teamSize: 4 },
     gameStarted: false,
     teams: {
       teamA: {

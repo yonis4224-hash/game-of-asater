@@ -75,7 +75,7 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined, initialRoomCode
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)" }}>
+    <><div className="bg-particles" /><div className="min-h-screen flex items-center justify-center p-4" style={{ background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)" }}>
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -160,6 +160,6 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined, initialRoomCode
           <span>الجولة 4: كود سري</span>
         </div>
       </motion.div>
-    </div>
+    </div></>
   );
 }

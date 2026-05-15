@@ -6,19 +6,19 @@ import {
   footballQuestions,
   triviaQuestions,
   drawingWords,
-  spyWords,
+  codenamesWords,
   shuffle,
 } from "./questions";
-import type { Player, Round1Data, Round2Data, Round3Data, Round4Data, Team } from "./types";
+import type { Player, Round1Data, Round2Data, Round3Data, Round4Data, Team, GameMode } from "./types";
 
 const TEAM_KEYS: Team[] = ["teamA", "teamB"];
 
-function getPlayersNeeded(mode: "4v4" | "1v1"): number {
-  return mode === "4v4" ? 8 : 2;
+function getPlayersNeeded(mode: GameMode): number {
+  return mode.type === "1v1" ? 2 : mode.teamSize * 2;
 }
 
-function getTeamSize(mode: "4v4" | "1v1"): number {
-  return mode === "4v4" ? 4 : 1;
+function getTeamSize(mode: GameMode): number {
+  return mode.type === "1v1" ? 1 : mode.teamSize;
 }
 
 function getTeamPlayers(players: Player[], team: Team): Player[] {
@@ -67,15 +67,13 @@ export function initSocketServer(httpServer: HttpServer): void {
     const requiredPerTeam = getTeamSize(room.gameMode);
 
     if (room.players.length !== requiredPlayers) {
-      return room.gameMode === "4v4"
-        ? `نمط 4 ضد 4 يحتاج 8 لاعبين قبل البدء. (${room.players.length}/${requiredPlayers})`
-        : `نمط 1 ضد 1 يحتاج لاعبين فقط قبل البدء. (${room.players.length}/${requiredPlayers})`;
+      return `اللعبة تحتاج ${requiredPlayers} لاعبين (${requiredPerTeam} لكل فريق). (${room.players.length}/${requiredPlayers})`;
     }
 
     for (const team of TEAM_KEYS) {
       const teamPlayers = getTeamPlayers(room.players, team);
       if (teamPlayers.length !== requiredPerTeam) {
-        return `${room.teams[team].name} يحتاج ${requiredPerTeam} ${requiredPerTeam === 1 ? "لاعب" : "لاعبين"} قبل البدء.`;
+        return `${room.teams[team].name} يحتاج ${requiredPerTeam} ${requiredPerTeam === 1 ? "لاعب" : "لاعبين"}.`;
       }
     }
 
@@ -116,12 +114,6 @@ export function initSocketServer(httpServer: HttpServer): void {
     return pl?.team ?? null;
   }
 
-  function getQuestionActor(roomCode: string, team: Team, questionIndex: number): Player | null {
-    const room = getRoom(roomCode);
-    if (!room) return null;
-    return getRoundActor(getTeamPlayers(room.players, team), questionIndex);
-  }
-
   function getDrawActor(roomCode: string, team: Team): Player | null {
     const room = getRoom(roomCode);
     if (!room) return null;
@@ -132,7 +124,27 @@ export function initSocketServer(httpServer: HttpServer): void {
     const room = getRoom(roomCode);
     if (!room) return null;
     const players = getTeamPlayers(room.players, team);
-    return players[1] ?? null;
+    return players[1 % players.length] ?? null;
+  }
+
+  function getSecondActor(roomCode: string, team: Team): Player | null {
+    const room = getRoom(roomCode);
+    if (!room) return null;
+    const players = getTeamPlayers(room.players, team);
+    return players[players.length > 1 ? 1 : 0] ?? null;
+  }
+
+  function getCodenamesRoles(roomCode: string, team: Team) {
+    const room = getRoom(roomCode);
+    if (!room) return { clueGiver: null, fieldAgent: null };
+    if (room.gameMode.type === "1v1") {
+      const player = getTeamPlayers(room.players, team)[0] ?? null;
+      return { clueGiver: player, fieldAgent: player };
+    }
+    const players = getTeamPlayers(room.players, team);
+    const clueGiver = players[0] ?? null;
+    const fieldAgent = players[players.length > 1 ? 1 : 0] ?? null;
+    return { clueGiver, fieldAgent };
   }
 
   function emitDrawingRound(roomCode: string) {
@@ -146,9 +158,9 @@ export function initSocketServer(httpServer: HttpServer): void {
       const drawActor = getDrawActor(roomCode, team);
       const guessActor = getGuessActor(roomCode, team);
       io.to(player.id).emit("startDrawing", {
-        word: player.id === drawActor?.id || room.gameMode === "1v1" ? data.word : null,
+        word: player.id === drawActor?.id || room.gameMode.type === "1v1" ? data.word : null,
         wordLength: data.wordLength,
-        canDraw: player.id === drawActor?.id || room.gameMode === "1v1",
+        canDraw: player.id === drawActor?.id || room.gameMode.type === "1v1",
         role: player.id === drawActor?.id ? "drawer" : player.id === guessActor?.id ? "guesser" : "spectator",
         teammateName: player.id === drawActor?.id ? guessActor?.name : drawActor?.name,
       });
@@ -169,13 +181,12 @@ export function initSocketServer(httpServer: HttpServer): void {
         drawingA: data.drawings.teamA,
         drawingB: data.drawings.teamB,
         wordLength: data.wordLength,
-        canGuess: player.id === guessActor?.id || room.gameMode === "1v1",
+        canGuess: player.id === guessActor?.id || room.gameMode.type === "1v1",
         role: player.id === guessActor?.id ? "guesser" : player.id === drawActor?.id ? "drawer" : "spectator",
         teammateName: player.id === guessActor?.id ? drawActor?.name : guessActor?.name,
       });
     });
 
-    // Start 15-second guess timer
     if (guessTimers.has(roomCode)) {
       clearTimeout(guessTimers.get(roomCode)!);
       guessTimers.delete(roomCode);
@@ -205,46 +216,6 @@ export function initSocketServer(httpServer: HttpServer): void {
       guessTimers.delete(roomCode);
     }, 15_000);
     guessTimers.set(roomCode, timer);
-  }
-
-  function emitSpyMasterRound(roomCode: string) {
-    const room = getRoom(roomCode);
-    if (!room) return;
-    const data = room.roundData as Round4Data;
-
-    room.players.forEach((player) => {
-      const team = player.team;
-      if (!team) return;
-      const clueActor = getDrawActor(roomCode, team);
-      const guessActor = getGuessActor(roomCode, team);
-      io.to(player.id).emit("startSpyMaster", {
-        word: player.id === clueActor?.id || room.gameMode === "1v1" ? data.word : null,
-        clues: player.id === clueActor?.id || room.gameMode === "1v1" ? data.clues : [],
-        canClue: player.id === clueActor?.id || room.gameMode === "1v1",
-        role: player.id === clueActor?.id ? "spymaster" : player.id === guessActor?.id ? "field-agent" : "spectator",
-        teammateName: player.id === clueActor?.id ? guessActor?.name : clueActor?.name,
-      });
-    });
-  }
-
-  function emitSpyGuessRound(roomCode: string) {
-    const room = getRoom(roomCode);
-    if (!room) return;
-    const data = room.roundData as Round4Data;
-
-    room.players.forEach((player) => {
-      const team = player.team;
-      if (!team) return;
-      const clueActor = getDrawActor(roomCode, team);
-      const guessActor = getGuessActor(roomCode, team);
-      io.to(player.id).emit("showSpyGuesses", {
-        clueA: data.spyClues.teamA,
-        clueB: data.spyClues.teamB,
-        canGuess: player.id === guessActor?.id || room.gameMode === "1v1",
-        role: player.id === guessActor?.id ? "field-agent" : player.id === clueActor?.id ? "spymaster" : "spectator",
-        teammateName: player.id === guessActor?.id ? clueActor?.name : guessActor?.name,
-      });
-    });
   }
 
   function startGame(roomCode: string) {
@@ -288,7 +259,7 @@ export function initSocketServer(httpServer: HttpServer): void {
   }
 
   // =================================================================
-  // ROUND 1: Football Trivia — ALL PLAYERS WRITE THEIR OWN ANSWER
+  // ROUND 1: Football Trivia
   // =================================================================
   function loadRound1(roomCode: string) {
     const room = getRoom(roomCode);
@@ -316,14 +287,12 @@ export function initSocketServer(httpServer: HttpServer): void {
     const question = data.questions[data.currentIndex];
     if (!question) return;
 
-    // Reset for new question
     const initialAnswers: Record<string, string | null> = {};
     room.players.forEach((p) => { initialAnswers[p.id] = null; });
     data.playerAnswers = initialAnswers;
     data.options = [];
     data.playerChoices = {};
 
-    // Phase 1: prompt all players to write their own answer
     io.to(roomCode).emit("showQuestion", {
       question,
       questionNumber: data.currentIndex + 1,
@@ -331,14 +300,13 @@ export function initSocketServer(httpServer: HttpServer): void {
       phase: "write_answer",
     });
 
-    // Auto-suggest timeout: fallback to empty answers
     if (suggestionTimers.has(roomCode)) {
       clearTimeout(suggestionTimers.get(roomCode)!);
       suggestionTimers.delete(roomCode);
     }
     suggestionTimers.set(roomCode, setTimeout(() => {
       finalizeRound1Options(roomCode);
-    }, 15000));
+    }, room.settings.questionTimeLimit * 1000));
   }
 
   function finalizeRound1Options(roomCode: string) {
@@ -353,8 +321,7 @@ export function initSocketServer(httpServer: HttpServer): void {
     for (const answer of Object.values(data.playerAnswers)) {
       if (answer && answer.trim()) optsSet.add(answer.trim());
     }
-    // Pad with some football-related distractors if needed (min 4)
-    const extra = ["مورينيو", "رونالدو جنيور", "مبابي", "ليفاندوفسكي", "كان آغويرو", "مالديني"];
+    const extra = ["مورينيو", "رونالدو", "مبابي", "ليفاندوفسكي", "أغويرو", "مالديني", "صلاح", "نيمار"];
     for (const e of shuffle(extra)) {
       if (optsSet.size >= 4) break;
       optsSet.add(e);
@@ -362,13 +329,11 @@ export function initSocketServer(httpServer: HttpServer): void {
     const options = shuffle(Array.from(optsSet));
     data.options = options;
 
-    // Clear suggestion timer
     if (suggestionTimers.has(roomCode)) {
       clearTimeout(suggestionTimers.get(roomCode)!);
       suggestionTimers.delete(roomCode);
     }
 
-    // Phase 2: emit options to all players for choosing
     io.to(roomCode).emit("showRound1Options", {
       question,
       options,
@@ -376,7 +341,6 @@ export function initSocketServer(httpServer: HttpServer): void {
       totalQuestions: data.questions.length,
     });
 
-    // Choice timeout
     if (choiceTimers.has(roomCode)) {
       clearTimeout(choiceTimers.get(roomCode)!);
       choiceTimers.delete(roomCode);
@@ -392,11 +356,10 @@ export function initSocketServer(httpServer: HttpServer): void {
           io.to(roomCode).emit("round1ChoiceResult", { playerId: p.id, playerName: p.name, team: p.team, choiceIndex: -1, isCorrect: false, correctOptionIndex: correctIndex });
         }
       }
-      // Check if all players have chosen after auto-fill
       if (r.players.every((pl) => d.playerChoices[pl.id] !== null && d.playerChoices[pl.id] !== undefined)) {
         proceedRound1AfterChoices(roomCode);
       }
-    }, 12000));
+    }, room.settings.questionTimeLimit * 1000));
   }
 
   function proceedRound1AfterChoices(roomCode: string) {
@@ -404,7 +367,6 @@ export function initSocketServer(httpServer: HttpServer): void {
     if (!room) return;
     const data = room.roundData as Round1Data;
     if (!data) return;
-    // Wait until all players have made a choice
     const allChosen = room.players.every((p) => data.playerChoices[p.id] !== null && data.playerChoices[p.id] !== undefined);
     if (!allChosen) return;
 
@@ -416,7 +378,6 @@ export function initSocketServer(httpServer: HttpServer): void {
     const question = data.questions[data.currentIndex];
     const correctIndex = data.options.indexOf(question.correct);
 
-    // Award points per player
     for (const player of room.players) {
       const choice = data.playerChoices[player.id] ?? -1;
       const isCorrect = choice === correctIndex;
@@ -425,7 +386,6 @@ export function initSocketServer(httpServer: HttpServer): void {
       }
     }
 
-    // Move to next question or round end
     data.currentIndex += 1;
     if (data.currentIndex >= data.questions.length) {
       room.teamAScore += data.scores.teamA;
@@ -442,7 +402,7 @@ export function initSocketServer(httpServer: HttpServer): void {
   }
 
   // =================================================================
-  // ROUND 2: Drawing & Guessing (15s timer)
+  // ROUND 2: Drawing & Guessing
   // =================================================================
   function loadRound2(roomCode: string) {
     const room = getRoom(roomCode);
@@ -459,7 +419,7 @@ export function initSocketServer(httpServer: HttpServer): void {
   }
 
   // =================================================================
-  // ROUND 3: Movies/Games/Geography Trivia — SAME AS ROUND 1
+  // ROUND 3: General Trivia
   // =================================================================
   function loadRound3(roomCode: string) {
     const room = getRoom(roomCode);
@@ -506,7 +466,7 @@ export function initSocketServer(httpServer: HttpServer): void {
     }
     suggestionTimers.set(roomCode, setTimeout(() => {
       finalizeRound3Options(roomCode);
-    }, 15000));
+    }, room.settings.questionTimeLimit * 1000));
   }
 
   function finalizeRound3Options(roomCode: string) {
@@ -521,7 +481,7 @@ export function initSocketServer(httpServer: HttpServer): void {
     for (const answer of Object.values(data.playerAnswers)) {
       if (answer && answer.trim()) optsSet.add(answer.trim());
     }
-    const extra = ["توتانخامن", "معرفتش", "مشهور", "معروف"];
+    const extra = ["توتانخامون", "أفريقيا", "مشهور", "معروف", "قديم", "حديث"];
     for (const e of shuffle(extra)) {
       if (optsSet.size >= 4) break;
       optsSet.add(e);
@@ -559,7 +519,7 @@ export function initSocketServer(httpServer: HttpServer): void {
       if (r.players.every((pl) => d.playerChoices[pl.id] !== null && d.playerChoices[pl.id] !== undefined)) {
         proceedRound3AfterChoices(roomCode);
       }
-    }, 12000));
+    }, room.settings.questionTimeLimit * 1000));
   }
 
   function proceedRound3AfterChoices(roomCode: string) {
@@ -602,20 +562,332 @@ export function initSocketServer(httpServer: HttpServer): void {
   }
 
   // =================================================================
-  // ROUND 4: Spy Master (Codenames)
+  // ROUND 4: Full Codenames (5x5 grid)
   // =================================================================
   function loadRound4(roomCode: string) {
     const room = getRoom(roomCode);
     if (!room) return;
-    const selected = spyWords[Math.floor(Math.random() * spyWords.length)] ?? { word: "نور", clues: ["ضياء", "سطوع", "فجر"] };
+
+    if (room.gameMode.type === "1v1") {
+      loadRound4Solo(roomCode);
+      return;
+    }
+
+    // Generate 5x5 grid
+    const pool = shuffle(codenamesWords).slice(0, 25);
+    const grid: string[][] = [];
+    for (let r = 0; r < 5; r++) {
+      grid.push(pool.slice(r * 5, (r + 1) * 5));
+    }
+
+    // Assign cards: 9 teamA, 8 teamB, 7 neutral, 1 assassin
+    const allPositions: { row: number; col: number }[] = [];
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        allPositions.push({ row: r, col: c });
+      }
+    }
+    const shuffled = shuffle(allPositions);
+
+    const teamACards = shuffled.slice(0, 9);
+    const teamBCards = shuffled.slice(9, 17);
+    const neutralCards = shuffled.slice(17, 24);
+    const assassinCard = shuffled[24]!;
+
     room.roundData = {
       type: "round4",
-      word: selected.word,
-      clues: selected.clues,
-      spyClues: { teamA: null, teamB: null },
-      guesses: { teamA: null, teamB: null },
+      grid,
+      teamACards,
+      teamBCards,
+      neutralCards,
+      assassinCard,
+      revealed: [],
+      clueGivers: { teamA: null, teamB: null },
+      clues: { teamA: null, teamB: null },
+      guessedTeam: { teamA: false, teamB: false },
+      currentTurn: null,
+      isSolo: false,
+      teamAscores: 0,
+      teamBscores: 0,
+      totalCardsA: teamACards.length,
+      totalCardsB: teamBCards.length,
     } as Round4Data;
-    emitSpyMasterRound(roomCode);
+
+    emitCodenamesGrid(roomCode);
+  }
+
+  function loadRound4Solo(roomCode: string) {
+    const room = getRoom(roomCode);
+    if (!room) return;
+
+    const selected = codenamesWords[Math.floor(Math.random() * codenamesWords.length)] ?? "نور";
+    room.roundData = {
+      type: "round4",
+      grid: [[selected]],
+      teamACards: [{ row: 0, col: 0 }],
+      teamBCards: [],
+      neutralCards: [],
+      assassinCard: { row: -1, col: -1 },
+      revealed: [],
+      clueGivers: { teamA: null, teamB: null },
+      clues: { teamA: null, teamB: null },
+      guessedTeam: { teamA: false, teamB: false },
+      currentTurn: null,
+      isSolo: true,
+      teamAscores: 0,
+      teamBscores: 0,
+      totalCardsA: 1,
+      totalCardsB: 0,
+    } as Round4Data;
+    emitCodenamesGrid(roomCode);
+  }
+
+  function emitCodenamesGrid(roomCode: string) {
+    const room = getRoom(roomCode);
+    if (!room) return;
+    const data = room.roundData as Round4Data;
+
+    room.players.forEach((player) => {
+      const team = player.team;
+      if (!team) return;
+      const { clueGiver, fieldAgent } = getCodenamesRoles(roomCode, team);
+      const isSolo = data.isSolo;
+      const isClueGiver = player.id === clueGiver?.id;
+
+      // Clue giver sees the full board with card assignments
+      // Field agent sees just the grid without assignments
+      const cardMap = new Map<string, "teamA" | "teamB" | "neutral" | "assassin">();
+      data.teamACards.forEach((c) => cardMap.set(`${c.row},${c.col}`, "teamA"));
+      data.teamBCards.forEach((c) => cardMap.set(`${c.row},${c.col}`, "teamB"));
+      data.neutralCards.forEach((c) => cardMap.set(`${c.row},${c.col}`, "neutral"));
+      cardMap.set(`${data.assassinCard.row},${data.assassinCard.col}`, "assassin");
+
+      const revealedSet = new Set(data.revealed.map((c) => `${c.row},${c.col}`));
+
+      if (isSolo) {
+        // In 1v1 mode, both players see everything
+        const canClue = player.id === clueGiver?.id;
+        io.to(player.id).emit("startCodenamesGrid", {
+          grid: data.grid,
+          cardMap: Object.fromEntries(cardMap),
+          revealed: data.revealed,
+          teamACards: data.teamACards,
+          teamBCards: data.teamBCards,
+          canClue,
+          clue: data.clues[team] ?? null,
+          isClueGiver: canClue,
+          isFieldAgent: canClue,
+          teamsCards: {
+            teamA: data.totalCardsA - data.revealed.filter((c) => data.teamACards.some((tc) => tc.row === c.row && tc.col === c.col)).length,
+            teamB: data.totalCardsB - data.revealed.filter((c) => data.teamBCards.some((tc) => tc.row === c.row && tc.col === c.col)).length,
+          },
+        });
+        return;
+      }
+
+      io.to(player.id).emit("startCodenamesGrid", {
+        grid: data.grid,
+        cardMap: isClueGiver ? Object.fromEntries(cardMap) : {},
+        revealed: data.revealed,
+        teamACards: isClueGiver ? data.teamACards : [],
+        teamBCards: isClueGiver ? data.teamBCards : [],
+        canClue: isClueGiver,
+        clue: data.clues[team] ?? null,
+        isClueGiver,
+        isFieldAgent: player.id === fieldAgent?.id,
+        teamsCards: {
+          teamA: data.totalCardsA - data.revealed.filter((c) => data.teamACards.some((tc) => tc.row === c.row && tc.col === c.col)).length,
+          teamB: data.totalCardsB - data.revealed.filter((c) => data.teamBCards.some((tc) => tc.row === c.row && tc.col === c.col)).length,
+        },
+      });
+    });
+  }
+
+  function handleCodenamesClue(roomCode: string, socketId: string, clue: string) {
+    const room = getRoom(roomCode);
+    if (!room || room.currentRound !== 4) return;
+    const data = room.roundData as Round4Data;
+    const team = getTeamFromSocket(roomCode, socketId);
+    if (!team) return;
+    const { clueGiver } = getCodenamesRoles(roomCode, team);
+    if (socketId !== clueGiver?.id && !data.isSolo) return;
+
+    if (!data.isSolo && data.clues[team] !== null) return;
+
+    data.clues[team] = clue;
+    data.clueGivers[team] = socketId;
+    io.to(roomCode).emit("codenamesClue", { team, clue });
+
+    // If both clues are in, start the game
+    if (data.clues.teamA !== null && data.clues.teamB !== null) {
+      data.currentTurn = "teamA";
+      io.to(roomCode).emit("codenamesTurn", { team: "teamA" });
+    }
+  }
+
+  function handleCodenamesPick(roomCode: string, socketId: string, row: number, col: number) {
+    const room = getRoom(roomCode);
+    if (!room || room.currentRound !== 4) return;
+    const data = room.roundData as Round4Data;
+    const team = getTeamFromSocket(roomCode, socketId);
+    if (!team) return;
+
+    if (data.isSolo) {
+      handleSoloCodenamesPick(roomCode, socketId, row, col);
+      return;
+    }
+
+    // Only field agent can pick (or any non-clue-giver in team mode)
+    const { clueGiver, fieldAgent } = getCodenamesRoles(roomCode, team);
+    if (socketId === clueGiver?.id) return;
+
+    if (data.currentTurn !== team) {
+      io.to(socketId).emit("systemMessage", "ليس دور فريقك الآن");
+      return;
+    }
+
+    // Check if already revealed
+    if (data.revealed.some((c) => c.row === row && c.col === col)) return;
+
+    data.revealed.push({ row, col });
+
+    // Determine what was picked
+    const isTeamA = data.teamACards.some((c) => c.row === row && c.col === col);
+    const isTeamB = data.teamBCards.some((c) => c.row === row && c.col === col);
+    const isNeutral = data.neutralCards.some((c) => c.row === row && c.col === col);
+    const isAssassin = data.assassinCard.row === row && data.assassinCard.col === col;
+
+    if (isAssassin) {
+      // Assassin! This team loses
+      io.to(roomCode).emit("codenamesPickResult", {
+        row,
+        col,
+        type: "assassin",
+        team,
+        word: data.grid[row]?.[col],
+      });
+      // Assassin gives bonus to other team
+      if (team === "teamA") {
+        room.teamBScore += room.settings.codenamesBonus * 2;
+      } else {
+        room.teamAScore += room.settings.codenamesBonus * 2;
+      }
+      finishRound4(roomCode);
+      return;
+    }
+
+    if (isTeamA) {
+      data.teamAscores++;
+      io.to(roomCode).emit("codenamesPickResult", {
+        row,
+        col,
+        type: "teamA",
+        team,
+        word: data.grid[row]?.[col],
+      });
+      // Check if team A found all their cards
+      if (data.teamAscores >= data.totalCardsA) {
+        room.teamAScore += room.settings.codenamesBonus * 3;
+        io.to(roomCode).emit("codenamesGameOver", { winner: "teamA" });
+        finishRound4(roomCode);
+        return;
+      }
+    } else if (isTeamB) {
+      data.teamBscores++;
+      io.to(roomCode).emit("codenamesPickResult", {
+        row,
+        col,
+        type: "teamB",
+        team,
+        word: data.grid[row]?.[col],
+      });
+      if (data.teamBscores >= data.totalCardsB) {
+        room.teamBScore += room.settings.codenamesBonus * 3;
+        io.to(roomCode).emit("codenamesGameOver", { winner: "teamB" });
+        finishRound4(roomCode);
+        return;
+      }
+      // If team A picked team B's card, switch turn
+      if (team === "teamA") {
+        data.currentTurn = "teamB";
+        io.to(roomCode).emit("codenamesTurn", { team: "teamB" });
+        return;
+      }
+    } else if (isNeutral) {
+      io.to(roomCode).emit("codenamesPickResult", {
+        row,
+        col,
+        type: "neutral",
+        team,
+        word: data.grid[row]?.[col],
+      });
+      // Neutral card = turn passes
+      const nextTeam = team === "teamA" ? "teamB" : "teamA";
+      data.currentTurn = nextTeam;
+      io.to(roomCode).emit("codenamesTurn", { team: nextTeam });
+      return;
+    }
+
+    // Correct pick - same team continues
+    if (!isAssassin) {
+      const remainingTeamA = data.totalCardsA - data.teamAscores;
+      const remainingTeamB = data.totalCardsB - data.teamBscores;
+      if (remainingTeamA <= 0) {
+        room.teamAScore += room.settings.codenamesBonus * 3;
+        io.to(roomCode).emit("codenamesGameOver", { winner: "teamA" });
+        finishRound4(roomCode);
+        return;
+      }
+      if (remainingTeamB <= 0) {
+        room.teamBScore += room.settings.codenamesBonus * 3;
+        io.to(roomCode).emit("codenamesGameOver", { winner: "teamB" });
+        finishRound4(roomCode);
+        return;
+      }
+    }
+  }
+
+  function handleSoloCodenamesPick(roomCode: string, socketId: string, _row: number, _col: number) {
+    const room = getRoom(roomCode);
+    if (!room) return;
+    const data = room.roundData as Round4Data;
+    const team = getTeamFromSocket(roomCode, socketId);
+    if (!team) return;
+    if (data.guessedTeam[team]) return;
+
+    if (data.clues[team] !== null && data.clues[team] === socketId) return;
+
+    data.guessedTeam[team] = true;
+
+    const isCorrect = data.clues[team] === data.clues[team === "teamA" ? "teamB" : "teamA"];
+    // Actually for solo mode, just check if they guess the word from the opponent's clue
+    io.to(roomCode).emit("spyGuessResult", { team, isCorrect: false, correctWord: data.grid[0]?.[0] ?? "" });
+
+    if (data.guessedTeam.teamA && data.guessedTeam.teamB) {
+      finishRound4(roomCode);
+    }
+  }
+
+  function finishRound4(roomCode: string) {
+    const room = getRoom(roomCode);
+    if (!room) return;
+
+    // Calculate remaining bonuses
+    const data = room.roundData as Round4Data;
+
+    // Points from correct guesses
+    room.teamAScore += data.teamAscores * room.settings.codenamesBonus;
+    room.teamBScore += data.teamBscores * room.settings.codenamesBonus;
+
+    io.to(roomCode).emit("roundEnd", {
+      round: 4,
+      scores: {
+        teamA: data.teamAscores * room.settings.codenamesBonus,
+        teamB: data.teamBscores * room.settings.codenamesBonus,
+      },
+      totalScores: { teamA: room.teamAScore, teamB: room.teamBScore },
+    });
+    setTimeout(() => endGame(roomCode), 4000);
   }
 
   function endGame(roomCode: string) {
@@ -656,7 +928,7 @@ export function initSocketServer(httpServer: HttpServer): void {
       const room = getRoom(roomCode);
       if (!room) { socket.emit("error", "الغرفة غير موجودة — تأكد من الكود وأن منشئ الغرفة لا يزال متصلاً"); return; }
       const maxPlayers = getPlayersNeeded(room.gameMode);
-      if (room.players.length >= maxPlayers) { socket.emit("error", `الغرفة ممتلئة (${maxPlayers} لاعبين في وضع ${room.gameMode})`); return; }
+      if (room.players.length >= maxPlayers) { socket.emit("error", `الغرفة ممتلئة (${maxPlayers} لاعبين)`); return; }
 
       room.players.push({ id: socket.id, name: playerName, team: null, isReady: false, isCreator: false });
       socket.join(roomCode);
@@ -717,15 +989,25 @@ export function initSocketServer(httpServer: HttpServer): void {
       io.to(roomCode).emit("systemMessage", `تم نقل ${player.name} إلى ${room.teams[newTeam].name}.`);
     });
 
-    socket.on("changeGameMode", ({ roomCode, mode }: { roomCode: string; mode: "4v4" | "1v1" }) => {
+    socket.on("changeGameMode", ({ roomCode, mode }: { roomCode: string; mode: { type: "team" | "1v1"; teamSize: number } }) => {
       const room = getRoom(roomCode);
       if (!room || room.creatorId !== socket.id) return;
       room.gameMode = mode;
+      const modeLabel = mode.type === "1v1" ? "1 ضد 1" : `${mode.teamSize} ضد ${mode.teamSize}`;
       io.to(roomCode).emit("gameModeChanged", mode);
-      io.to(roomCode).emit("systemMessage", `تم تغيير وضع اللعبة إلى ${mode === "4v4" ? "4 ضد 4" : "1 ضد 1"}`);
+      io.to(roomCode).emit("systemMessage", `تم تغيير وضع اللعبة إلى ${modeLabel}`);
       room.gameStarted = false;
       room.players.forEach((p) => (p.isReady = false));
-      if (mode === "1v1") {
+
+      // Trim extra players if needed
+      const maxPlayers = getPlayersNeeded(mode);
+      while (room.players.length > maxPlayers) {
+        const removed = room.players.pop()!;
+        io.to(removed.id).emit("kicked", "تم إخراجك من الغرفة بسبب تغيير عدد اللاعبين");
+        io.sockets.sockets.get(removed.id)?.leave(roomCode);
+      }
+
+      if (mode.type === "1v1") {
         const kept: Record<Team, number> = { teamA: 0, teamB: 0 };
         room.players.forEach((p) => {
           if (!p.team) return;
@@ -733,6 +1015,7 @@ export function initSocketServer(httpServer: HttpServer): void {
           if (kept[p.team] > 1) p.team = null;
         });
       }
+
       io.to(roomCode).emit("playersUpdate", room.players);
       emitRoomMeta(roomCode);
     });
@@ -743,7 +1026,7 @@ export function initSocketServer(httpServer: HttpServer): void {
       const player = room.players.find((p) => p.id === socket.id);
       if (!player) return;
       const teamCount = room.players.filter((p) => p.team === team).length;
-      const maxPerTeam = room.gameMode === "4v4" ? 4 : 1;
+      const maxPerTeam = getTeamSize(room.gameMode);
       if (teamCount >= maxPerTeam && player.team !== team) { socket.emit("error", "هذا الفريق ممتلئ"); return; }
       player.team = team;
       player.isReady = false;
@@ -831,7 +1114,7 @@ export function initSocketServer(httpServer: HttpServer): void {
       if (!room || room.currentRound !== 2) return;
       const team = getTeamFromSocket(roomCode, socket.id);
       if (!team) return;
-      if (getDrawActor(roomCode, team)?.id !== socket.id && room.gameMode !== "1v1") { socket.emit("error", "دور الرسم ليس لك في هذه الجولة."); return; }
+      if (getDrawActor(roomCode, team)?.id !== socket.id && room.gameMode.type !== "1v1") { socket.emit("error", "دور الرسم ليس لك في هذه الجولة."); return; }
       const data = room.roundData as Round2Data;
       data.drawings[team] = drawingData;
       io.to(roomCode).emit("drawingSubmitted", { team, playerName: getPlayerOrNull(roomCode, socket.id)?.name ?? "لاعب" });
@@ -845,14 +1128,13 @@ export function initSocketServer(httpServer: HttpServer): void {
       if (!room || room.currentRound !== 2) return;
       const team = getTeamFromSocket(roomCode, socket.id);
       if (!team) return;
-      if (getGuessActor(roomCode, team)?.id !== socket.id && room.gameMode !== "1v1") { socket.emit("error", "دور التخمين ليس لك الآن."); return; }
+      if (getGuessActor(roomCode, team)?.id !== socket.id && room.gameMode.type !== "1v1") { socket.emit("error", "دور التخمين ليس لك الآن."); return; }
       const data = room.roundData as Round2Data;
       if (data.guesses[team] !== null) return;
       const isCorrect = guess.trim() === data.word;
       data.guesses[team] = isCorrect;
       if (isCorrect) { if (team === "teamA") room.teamAScore += room.settings.drawingPoints; else room.teamBScore += room.settings.drawingPoints; }
 
-      // Cancel guess timer if both have guessed
       if (data.guesses.teamA !== null && data.guesses.teamB !== null) {
         if (guessTimers.has(roomCode)) {
           clearTimeout(guessTimers.get(roomCode)!);
@@ -923,45 +1205,14 @@ export function initSocketServer(httpServer: HttpServer): void {
     });
 
     // =================================================================
-    // ROUND 4: Spy Master
+    // ROUND 4: Codenames
     // =================================================================
-    socket.on("submitSpyClue", ({ roomCode, clue }: { roomCode: string; clue: string }) => {
-      const room = getRoom(roomCode);
-      if (!room || room.currentRound !== 4) return;
-      const team = getTeamFromSocket(roomCode, socket.id);
-      if (!team) return;
-      if (getDrawActor(roomCode, team)?.id !== socket.id && room.gameMode !== "1v1") { socket.emit("error", "دور قائد الشفرة ليس لك الآن."); return; }
-      const data = room.roundData as Round4Data;
-      data.spyClues[team] = clue;
-      io.to(roomCode).emit("spyClueSubmitted", { team, playerName: getPlayerOrNull(roomCode, socket.id)?.name ?? "لاعب" });
-      if (data.spyClues.teamA && data.spyClues.teamB) {
-        emitSpyGuessRound(roomCode);
-      }
+    socket.on("submitCodenamesClue", ({ roomCode, clue }: { roomCode: string; clue: string }) => {
+      handleCodenamesClue(roomCode, socket.id, clue);
     });
 
-    socket.on("submitSpyGuess", ({ roomCode, guess }: { roomCode: string; guess: string }) => {
-      const room = getRoom(roomCode);
-      if (!room || room.currentRound !== 4) return;
-      const team = getTeamFromSocket(roomCode, socket.id);
-      if (!team) return;
-      if (getGuessActor(roomCode, team)?.id !== socket.id && room.gameMode !== "1v1") { socket.emit("error", "دور عميل التخمين ليس لك الآن."); return; }
-      const data = room.roundData as Round4Data;
-      if (data.guesses[team] !== null) return;
-      const isCorrect = guess.trim() === data.word;
-      data.guesses[team] = isCorrect;
-      if (isCorrect) { if (team === "teamA") room.teamAScore += room.settings.spyPoints; else room.teamBScore += room.settings.spyPoints; }
-      io.to(roomCode).emit("spyGuessResult", { team, isCorrect, correctWord: data.word, playerName: getPlayerOrNull(roomCode, socket.id)?.name ?? "لاعب" });
-      if (data.guesses.teamA !== null && data.guesses.teamB !== null) {
-        io.to(roomCode).emit("roundEnd", {
-          round: 4,
-          scores: {
-            teamA: data.guesses.teamA ? room.settings.spyPoints : 0,
-            teamB: data.guesses.teamB ? room.settings.spyPoints : 0,
-          },
-          totalScores: { teamA: room.teamAScore, teamB: room.teamBScore },
-        });
-        setTimeout(() => endGame(roomCode), 4000);
-      }
+    socket.on("submitCodenamesPick", ({ roomCode, row, col }: { roomCode: string; row: number; col: number }) => {
+      handleCodenamesPick(roomCode, socket.id, row, col);
     });
 
     // =================================================================

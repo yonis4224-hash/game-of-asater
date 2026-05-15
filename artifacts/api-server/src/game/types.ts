@@ -18,7 +18,14 @@ export interface RoomSettings {
   drawingPoints: number;
   triviaPoints: number;
   spyPoints: number;
+  codenamesBonus: number;
   guessTimeLimit: number;
+  questionTimeLimit: number;
+}
+
+export interface GameMode {
+  type: "team" | "1v1";
+  teamSize: number;
 }
 
 export interface Room {
@@ -28,7 +35,7 @@ export interface Room {
   currentRound: number;
   teamAScore: number;
   teamBScore: number;
-  gameMode: "4v4" | "1v1";
+  gameMode: GameMode;
   gameStarted: boolean;
   roundData: RoundData | null;
   settings: RoomSettings;
@@ -37,21 +44,18 @@ export interface Room {
 
 export type RoundData = Round1Data | Round2Data | Round3Data | Round4Data;
 
-/** Round 1: Football trivia — all players write their own answer, then everyone picks from all answers + correct */
+/** Round 1: Football trivia */
 export interface Round1Data {
   type: "round1";
   questions: TriviaQuestion[];
   currentIndex: number;
-  // Phase 1: each player writes their own answer
   playerAnswers: Record<string, string | null>;
-  // Phase 2: shuffled options = all unique player answers + correct answer
   options: string[];
-  // Phase 3: each player picks an option index
   playerChoices: Record<string, number | null>;
   scores: { teamA: number; teamB: number };
 }
 
-/** Round 2: Drawing — drawer draws, guesser guesses with 15s timer */
+/** Round 2: Drawing */
 export interface Round2Data {
   type: "round2";
   word: string;
@@ -60,7 +64,7 @@ export interface Round2Data {
   wordLength: number;
 }
 
-/** Round 3: Movies/Games/Geography trivia — same system as Round 1 */
+/** Round 3: General trivia */
 export interface Round3Data {
   type: "round3";
   questions: TriviaQuestion[];
@@ -71,13 +75,24 @@ export interface Round3Data {
   scores: { teamA: number; teamB: number };
 }
 
-/** Round 4: Codenames (Spy Master) — clue giver gives hint, guesser guesses */
+/** Round 4: Full Codenames (5x5 grid) */
 export interface Round4Data {
   type: "round4";
-  word: string;
-  clues: string[];
-  spyClues: { teamA: string | null; teamB: string | null };
-  guesses: { teamA: boolean | null; teamB: boolean | null };
+  grid: string[][];
+  teamACards: { row: number; col: number }[];
+  teamBCards: { row: number; col: number }[];
+  neutralCards: { row: number; col: number }[];
+  assassinCard: { row: number; col: number };
+  revealed: { row: number; col: number }[];
+  clueGivers: Record<Team, string | null>;
+  clues: Record<Team, string | null>;
+  guessedTeam: Record<Team, boolean>;
+  currentTurn: Team | null;
+  isSolo: boolean;
+  teamAscores: number;
+  teamBscores: number;
+  totalCardsA: number;
+  totalCardsB: number;
 }
 
 export interface TriviaQuestion {
