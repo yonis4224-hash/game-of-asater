@@ -30,12 +30,19 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined, initialRoomCode
     setError("");
     const socket = getSocket();
 
+    let timedOut = false;
     const timeout = setTimeout(() => {
+      timedOut = true;
       socket.off("roomCreated");
       socket.off("error");
       setLoading(false);
-      setError("تعذر الاتصال بالخادم — تأكد من أن السيرفر شغال");
-    }, 8000);
+      setError("تعذر الاتصال بالخادم — السيرفر ينام بعد 15 دقيقة. انتظر دقيقة وحاول مرة أخرى");
+    }, 30000);
+
+    const tryEmit = () => {
+      if (timedOut) return;
+      socket.emit("createRoom", { playerName: playerName.trim(), settings: defaultSettings });
+    };
 
     socket.once("roomCreated", (data: { roomCode: string; playerId: string; isCreator: boolean }) => {
       clearTimeout(timeout);
@@ -47,7 +54,13 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined, initialRoomCode
       setLoading(false);
       setError(msg);
     });
-    emitWhenConnected("createRoom", { playerName: playerName.trim(), settings: defaultSettings });
+
+    if (socket.connected) {
+      tryEmit();
+    } else {
+      setError("يجري الاتصال بالخادم... قد يستغرق 30-60 ثانية");
+      socket.once("connect", tryEmit);
+    }
   };
 
   const handleJoin = () => {
