@@ -14,7 +14,7 @@ export function createRoom(
   roomCode: string,
   creatorId: string,
   creatorName: string,
-  settings?: Partial<RoomSettings>
+  settings?: Partial<RoomSettings>,
 ): Room {
   const room: Room = {
     id: roomCode,
@@ -34,8 +34,14 @@ export function createRoom(
     gameMode: "4v4",
     gameStarted: false,
     teams: {
-      teamA: { name: "\u0627\u0644\u0623\u0631\u0633\u0646\u0627\u0644", color: "#ef4444" },
-      teamB: { name: "\u0645\u0627\u0646\u0633\u064a\u062a\u064a", color: "#3b82f6" },
+      teamA: {
+        name: "\u0627\u0644\u0623\u0631\u0633\u0646\u0627\u0644",
+        color: "#ef4444",
+      },
+      teamB: {
+        name: "\u0645\u0627\u0646\u0633\u064a\u062a\u064a",
+        color: "#3b82f6",
+      },
     },
     roundData: null,
     settings: { ...defaultSettings, ...(settings ?? {}) },

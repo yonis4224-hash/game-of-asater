@@ -27,10 +27,10 @@ app.use(
     },
   }),
 );
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 app.use("/api", router);
 
 // If the frontend has been built, serve it as static files so Replit (or any single-process host)
@@ -42,10 +42,9 @@ try {
   let frontendDist: string | null = null;
   if (existsSync(candidatePublic)) frontendDist = candidatePublic;
   else if (existsSync(candidateDist)) frontendDist = candidateDist;
-
   if (frontendDist) {
     app.use(express.static(frontendDist));
-    app.get("/{*path}", (_req, res) => res.sendFile(path.join(frontendDist!, "index.html")));
+    app.get(/(.*)/, (_req, res) => res.sendFile(path.join(frontendDist!, "index.html")));
   }
 } catch (err) {
   logger.warn({ err }, "Could not enable static frontend serving");
