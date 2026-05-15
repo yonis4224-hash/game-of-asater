@@ -254,9 +254,15 @@ export function initSocketServer(httpServer: HttpServer): void {
     // Delay to ensure client components mount and register listeners
     setTimeout(() => {
       if (round === 1) loadRound1(roomCode);
-      else if (round === 2) loadRound2(roomCode);
+      else if (round === 2) {
+        if (room.gameMode.type === "1v1") loadRound1v1_2(roomCode);
+        else loadRound2(roomCode);
+      }
       else if (round === 3) loadRound3(roomCode);
-      else if (round === 4) loadRound4(roomCode);
+      else if (round === 4) {
+        if (room.gameMode.type === "1v1") loadRound1v1_4(roomCode);
+        else loadRound4(roomCode);
+      }
       else endGame(roomCode);
     }, 600);
   }
@@ -562,6 +568,50 @@ export function initSocketServer(httpServer: HttpServer): void {
     } else {
       setTimeout(() => sendRound3Question(roomCode), 2200);
     }
+  }
+
+  // =================================================================
+  // ROUND 1v1_2: Football trivia replay (for 1v1 round 2)
+  // =================================================================
+  function loadRound1v1_2(roomCode: string) {
+    const room = getRoom(roomCode);
+    if (!room) return;
+    const questions = shuffle(footballQuestions).slice(0, 4);
+    const initialAnswers: Record<string, string | null> = {};
+    room.players.forEach((p) => { initialAnswers[p.id] = null; });
+
+    room.roundData = {
+      type: "round1",
+      questions,
+      currentIndex: 0,
+      playerAnswers: initialAnswers,
+      options: [],
+      playerChoices: {},
+      scores: { teamA: 0, teamB: 0 },
+    } as Round1Data;
+    sendRound1Question(roomCode);
+  }
+
+  // =================================================================
+  // ROUND 1v1_4: General trivia replay (for 1v1 round 4)
+  // =================================================================
+  function loadRound1v1_4(roomCode: string) {
+    const room = getRoom(roomCode);
+    if (!room) return;
+    const questions = shuffle(triviaQuestions).slice(0, 4);
+    const initialAnswers: Record<string, string | null> = {};
+    room.players.forEach((p) => { initialAnswers[p.id] = null; });
+
+    room.roundData = {
+      type: "round3",
+      questions,
+      currentIndex: 0,
+      playerAnswers: initialAnswers,
+      options: [],
+      playerChoices: {},
+      scores: { teamA: 0, teamB: 0 },
+    } as Round3Data;
+    sendRound3Question(roomCode);
   }
 
   // =================================================================
@@ -1063,7 +1113,8 @@ export function initSocketServer(httpServer: HttpServer): void {
     // =================================================================
     socket.on("submitPlayerAnswer", ({ roomCode, answer }: { roomCode: string; answer: string }) => {
       const room = getRoom(roomCode);
-      if (!room || room.currentRound !== 1) return;
+      const is1v1R2 = room && room.gameMode.type === "1v1" && room.currentRound === 2;
+      if (!room || (room.currentRound !== 1 && !is1v1R2)) return;
       const data = room.roundData as Round1Data;
       if (!data || data.type !== "round1") return;
       data.playerAnswers[socket.id] = answer.trim() || null;
@@ -1080,7 +1131,8 @@ export function initSocketServer(httpServer: HttpServer): void {
 
     socket.on("submitPlayerChoice", ({ roomCode, choiceIndex }: { roomCode: string; choiceIndex: number }) => {
       const room = getRoom(roomCode);
-      if (!room || room.currentRound !== 1) return;
+      const is1v1R2 = room && room.gameMode.type === "1v1" && room.currentRound === 2;
+      if (!room || (room.currentRound !== 1 && !is1v1R2)) return;
       const data = room.roundData as Round1Data;
       if (!data || data.type !== "round1") return;
       if (!data.options.length) return;
@@ -1161,7 +1213,8 @@ export function initSocketServer(httpServer: HttpServer): void {
     // =================================================================
     socket.on("submitPlayerAnswerRound3", ({ roomCode, answer }: { roomCode: string; answer: string }) => {
       const room = getRoom(roomCode);
-      if (!room || room.currentRound !== 3) return;
+      const is1v1R4 = room && room.gameMode.type === "1v1" && room.currentRound === 4;
+      if (!room || (room.currentRound !== 3 && !is1v1R4)) return;
       const data = room.roundData as Round3Data;
       if (!data || data.type !== "round3") return;
       data.playerAnswers[socket.id] = answer.trim() || null;
@@ -1178,7 +1231,8 @@ export function initSocketServer(httpServer: HttpServer): void {
 
     socket.on("submitPlayerChoiceRound3", ({ roomCode, choiceIndex }: { roomCode: string; choiceIndex: number }) => {
       const room = getRoom(roomCode);
-      if (!room || room.currentRound !== 3) return;
+      const is1v1R4 = room && room.gameMode.type === "1v1" && room.currentRound === 4;
+      if (!room || (room.currentRound !== 3 && !is1v1R4)) return;
       const data = room.roundData as Round3Data;
       if (!data || data.type !== "round3") return;
       if (!data.options.length) return;

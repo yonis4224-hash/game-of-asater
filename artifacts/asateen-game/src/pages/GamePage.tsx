@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getSocket } from "@/lib/socket";
 import type { TriviaQuestion, Team, GameMode, CodenamesGridData } from "@/types/game";
@@ -16,6 +16,23 @@ interface GamePageProps {
   gameMode?: GameMode;
 }
 
+const ROUND_NAMES_TEAM: Record<number, string> = {
+  1: "الجولة 1: أسئلة كروية",
+  2: "الجولة 2: رسم وتخمين",
+  3: "الجولة 3: ألعاب وأفلام وجغرافيا",
+  4: "الجولة 4: كود نيمز",
+};
+
+const ROUND_NAMES_1V1: Record<number, string> = {
+  1: "الجولة 1: أسئلة كروية",
+  2: "الجولة 2: أسئلة عامة",
+  3: "الجولة 3: ألغاز",
+  4: "الجولة 4: أسئلة خادعة",
+};
+
+const ROUND_ICONS_TEAM = ["⚽", "🎨", "🎬", "🕵️"];
+const ROUND_ICONS_1V1 = ["⚽", "❓", "🎬", "❓"];
+
 type GamePhase =
   | { type: "waiting" }
   | { type: "round_intro"; round: number }
@@ -29,16 +46,7 @@ type GamePhase =
   | { type: "round_end"; round: number; scores: { teamA: number; teamB: number }; totalScores: { teamA: number; teamB: number } }
   | { type: "game_end"; finalScores: { teamA: number; teamB: number }; winner: string };
 
-const ROUND_NAMES: Record<number, string> = {
-  1: "الجولة 1: أسئلة كروية",
-  2: "الجولة 2: رسم وتخمين",
-  3: "الجولة 3: ألعاب وأفلام وجغرافيا",
-  4: "الجولة 4: كود نيمز",
-};
-
-const ROUND_ICONS = ["⚽", "🎨", "🎬", "🕵️"];
-
-export default function GamePage({ roomCode, myTeam, teamProfiles, onGameOver }: GamePageProps) {
+export default function GamePage({ roomCode, myTeam, teamProfiles, onGameOver, gameMode }: GamePageProps) {
   const [phase, setPhase] = useState<GamePhase>({ type: "waiting" });
   const [currentRound, setCurrentRound] = useState(1);
   const [scores, setScores] = useState({ teamA: 0, teamB: 0 });
@@ -50,6 +58,9 @@ export default function GamePage({ roomCode, myTeam, teamProfiles, onGameOver }:
   const [cnTurn, setCnTurn] = useState<Team | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef({ active: false, lastX: 0, lastY: 0 });
+
+  const roundNames = gameMode?.type === "1v1" ? ROUND_NAMES_1V1 : ROUND_NAMES_TEAM;
+  const roundIcons = gameMode?.type === "1v1" ? ROUND_ICONS_1V1 : ROUND_ICONS_TEAM;
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -273,16 +284,18 @@ export default function GamePage({ roomCode, myTeam, teamProfiles, onGameOver }:
 
   const submitPlayerAnswer = useCallback(() => {
     if (!answerText.trim()) return;
-    const event = currentRound === 3 ? "submitPlayerAnswerRound3" : "submitPlayerAnswer";
+    const isRound3or4 = currentRound === 3 || (gameMode?.type === "1v1" && currentRound === 4);
+    const event = isRound3or4 ? "submitPlayerAnswerRound3" : "submitPlayerAnswer";
     getSocket().emit(event, { roomCode, answer: answerText.trim() });
     setPhase((p) => p.type === "write_answer" ? { ...p, submitted: true } : p);
-  }, [answerText, roomCode, currentRound]);
+  }, [answerText, roomCode, currentRound, gameMode]);
 
   const submitPlayerChoice = useCallback((choiceIndex: number) => {
-    const event = currentRound === 3 ? "submitPlayerChoiceRound3" : "submitPlayerChoice";
+    const isRound3or4 = currentRound === 3 || (gameMode?.type === "1v1" && currentRound === 4);
+    const event = isRound3or4 ? "submitPlayerChoiceRound3" : "submitPlayerChoice";
     getSocket().emit(event, { roomCode, choiceIndex });
     setPhase((p) => p.type === "choose_option" ? { ...p, answered: true } : p);
-  }, [roomCode, currentRound]);
+  }, [roomCode, currentRound, gameMode]);
 
   const submitCodenamesClue = useCallback(() => {
     if (!clueText.trim()) return;
@@ -340,9 +353,9 @@ export default function GamePage({ roomCode, myTeam, teamProfiles, onGameOver }:
         return (
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-center py-12">
             <motion.div className="text-7xl mb-4" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.5, repeat: 2 }}>
-              {ROUND_ICONS[phase.round - 1] || "🎮"}
+              {roundIcons[phase.round - 1] || "🎮"}
             </motion.div>
-            <h2 className="text-2xl font-bold text-white">{ROUND_NAMES[phase.round] || `الجولة ${phase.round}`}</h2>
+            <h2 className="text-2xl font-bold text-white">{roundNames[phase.round] || `الجولة ${phase.round}`}</h2>
           </motion.div>
         );
 
