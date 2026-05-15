@@ -29,11 +29,21 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined, initialRoomCode
     setLoading(true);
     setError("");
     const socket = getSocket();
+
+    const timeout = setTimeout(() => {
+      socket.off("roomCreated");
+      socket.off("error");
+      setLoading(false);
+      setError("تعذر الاتصال بالخادم — تأكد من أن السيرفر شغال");
+    }, 8000);
+
     socket.once("roomCreated", (data: { roomCode: string; playerId: string; isCreator: boolean }) => {
+      clearTimeout(timeout);
       setLoading(false);
       onRoomCreated(data.roomCode, data.playerId, data.isCreator);
     });
     socket.once("error", (msg: string) => {
+      clearTimeout(timeout);
       setLoading(false);
       setError(msg);
     });
