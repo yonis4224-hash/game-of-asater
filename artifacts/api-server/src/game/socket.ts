@@ -251,11 +251,14 @@ export function initSocketServer(httpServer: HttpServer): void {
       teams: room.teams,
     });
 
-    if (round === 1) loadRound1(roomCode);
-    else if (round === 2) loadRound2(roomCode);
-    else if (round === 3) loadRound3(roomCode);
-    else if (round === 4) loadRound4(roomCode);
-    else endGame(roomCode);
+    // Delay to ensure client components mount and register listeners
+    setTimeout(() => {
+      if (round === 1) loadRound1(roomCode);
+      else if (round === 2) loadRound2(roomCode);
+      else if (round === 3) loadRound3(roomCode);
+      else if (round === 4) loadRound4(roomCode);
+      else endGame(roomCode);
+    }, 600);
   }
 
   // =================================================================
