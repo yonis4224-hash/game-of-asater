@@ -62,7 +62,10 @@ export default function App() {
     socket.on("roomMeta", (meta: { gameMode: GameMode; teams: Record<Team, { name: string; color: string }> }) => {
       setGameState((s) => ({ ...s, teams: meta.teams, gameMode: meta.gameMode }));
     });
-    return () => { socket.off("roomMeta"); };
+    socket.on("roomCreated", (data: { playerId: string }) => {
+      setGameState((s) => ({ ...s, playerId: data.playerId }));
+    });
+    return () => { socket.off("roomMeta"); socket.off("roomCreated"); };
   }, []);
 
   const handleKicked = () => {

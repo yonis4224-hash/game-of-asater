@@ -967,8 +967,8 @@ export function initSocketServer(httpServer: HttpServer): void {
   io.on("connection", (socket) => {
     logger.info({ socketId: socket.id }, "Player connected");
 
-    socket.on("createRoom", ({ playerName, settings }: { playerName: string; settings?: Partial<Record<string, number>> }) => {
-      const roomCode = generateRoomCode();
+    socket.on("createRoom", ({ playerName, settings, roomCode: clientCode }: { playerName: string; settings?: Partial<Record<string, number>>; roomCode?: string }) => {
+      const roomCode = clientCode || generateRoomCode();
       createRoom(roomCode, socket.id, playerName, settings);
       socket.join(roomCode);
       playerRoomMap.set(socket.id, roomCode);

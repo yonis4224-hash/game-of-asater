@@ -26,34 +26,23 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined, initialRoomCode
 
   const handleCreate = () => {
     if (!playerName.trim()) { setError("الرجاء إدخال اسمك"); return; }
-    setLoading(true);
-    setError("جارٍ الاتصال...");
 
+    // Generate room locally (offline-first) — no server needed
+    const localCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const localId = "local_" + Math.random().toString(36).substring(2, 10);
+
+    // Transition to room immediately — no waiting for server
+    onRoomCreated(localCode, localId, true);
+
+    // Sync with server in background (uses same room code so others can join)
     const socket = getSocket();
-
-    const doCreate = () => {
-      setError("");
-      socket.emit("createRoom", { playerName: playerName.trim(), settings: defaultSettings });
+    const syncRoom = () => {
+      socket.emit("createRoom", { playerName: playerName.trim(), settings: defaultSettings, roomCode: localCode });
     };
-
-    socket.once("roomCreated", (data) => {
-      setLoading(false);
-      onRoomCreated(data.roomCode, data.playerId, data.isCreator);
-    });
-
     if (socket.connected) {
-      doCreate();
+      syncRoom();
     } else {
-      const timeout = setTimeout(() => {
-        socket.off("connect", doCreate);
-        socket.off("roomCreated");
-        setLoading(false);
-        setError("تعذر الاتصال بالخادم — تأكد من تشغيل الخادم وأعد المحاولة");
-      }, 8000);
-      socket.once("connect", () => {
-        clearTimeout(timeout);
-        doCreate();
-      });
+      socket.once("connect", syncRoom);
     }
   };
 
