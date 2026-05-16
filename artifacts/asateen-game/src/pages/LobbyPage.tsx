@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { getSocket, emitWhenConnected } from "@/lib/socket";
+import { getSocket } from "@/lib/socket";
 import type { RoomSettings } from "@/types/game";
 
 interface LobbyPageProps {

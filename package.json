@@ -1,17 +1,16 @@
 {
   "name": "workspace",
   "version": "0.0.0",
-  "license": "MIT",
-  "scripts": {
-    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm on Replit for workspace support\" >&2 ;; esac'",
-    "start": "pnpm --filter @workspace/asateen-game run build && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/api-server run start",
-    "dev:api": "cd artifacts/api-server && node build.mjs && node dist/index.mjs",
-    "dev:front": "cd artifacts/asateen-game && npx vite --config vite.config.ts --host 0.0.0.0",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
-    "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
-  },
   "private": true,
+  "workspaces": ["artifacts/*"],
+  "scripts": {
+    "start": "npm run build:front -s && npm run build:api -s && npm run start:api -s",
+    "build:front": "npm -w @workspace/asateen-game run build",
+    "build:api": "npm -w @workspace/api-server run build",
+    "start:api": "npm -w @workspace/api-server run start",
+    "dev:api": "npm -w @workspace/api-server run dev",
+    "dev:front": "npm -w @workspace/asateen-game run dev"
+  },
   "devDependencies": {
     "typescript": "~5.9.2",
     "prettier": "^3.8.1"
