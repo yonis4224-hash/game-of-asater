@@ -18,11 +18,12 @@ function getServerUrl(): string {
     }
   }
 
-  // Replit: backend on port 8080
+  // Replit (old): backend on port 8080
   if (host.includes("replit") || port === "5173") {
     return `${window.location.protocol}//${host}:8080`;
   }
 
+  // Replit (new .repl.co / picard): backend serves frontend on same origin — no override needed
   return "";
 }
 

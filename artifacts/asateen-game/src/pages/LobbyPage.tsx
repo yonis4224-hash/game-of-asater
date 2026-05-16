@@ -41,15 +41,19 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined, initialRoomCode
       onRoomCreated(data.roomCode, data.playerId, data.isCreator);
     });
 
-    socket.once("error", (msg) => {
-      setLoading(false);
-      setError(msg);
-    });
-
     if (socket.connected) {
       doCreate();
     } else {
-      socket.once("connect", doCreate);
+      const timeout = setTimeout(() => {
+        socket.off("connect", doCreate);
+        socket.off("roomCreated");
+        setLoading(false);
+        setError("تعذر الاتصال بالخادم — تأكد من تشغيل الخادم وأعد المحاولة");
+      }, 8000);
+      socket.once("connect", () => {
+        clearTimeout(timeout);
+        doCreate();
+      });
     }
   };
 
