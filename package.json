@@ -11,6 +11,9 @@
     "dev:api": "npm -w @workspace/api-server run dev",
     "dev:front": "npm -w @workspace/asateen-game run dev"
   },
+  "overrides": {
+    "esbuild": "^0.27.3"
+  },
   "devDependencies": {
     "typescript": "~5.9.2",
     "prettier": "^3.8.1"
