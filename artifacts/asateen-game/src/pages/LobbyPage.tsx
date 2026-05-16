@@ -27,39 +27,29 @@ export default function LobbyPage({ onRoomCreated, onRoomJoined, initialRoomCode
   const handleCreate = () => {
     if (!playerName.trim()) { setError("الرجاء إدخال اسمك"); return; }
     setLoading(true);
-    setError("");
+    setError("جارٍ الاتصال...");
+
     const socket = getSocket();
 
-    let timedOut = false;
-    const timeout = setTimeout(() => {
-      timedOut = true;
-      socket.off("roomCreated");
-      socket.off("error");
-      setLoading(false);
-      setError("تعذر الاتصال بالخادم — السيرفر ينام بعد 15 دقيقة. انتظر دقيقة وحاول مرة أخرى");
-    }, 30000);
-
-    const tryEmit = () => {
-      if (timedOut) return;
+    const doCreate = () => {
+      setError("");
       socket.emit("createRoom", { playerName: playerName.trim(), settings: defaultSettings });
     };
 
-    socket.once("roomCreated", (data: { roomCode: string; playerId: string; isCreator: boolean }) => {
-      clearTimeout(timeout);
+    socket.once("roomCreated", (data) => {
       setLoading(false);
       onRoomCreated(data.roomCode, data.playerId, data.isCreator);
     });
-    socket.once("error", (msg: string) => {
-      clearTimeout(timeout);
+
+    socket.once("error", (msg) => {
       setLoading(false);
       setError(msg);
     });
 
     if (socket.connected) {
-      tryEmit();
+      doCreate();
     } else {
-      setError("يجري الاتصال بالخادم... قد يستغرق 30-60 ثانية");
-      socket.once("connect", tryEmit);
+      socket.once("connect", doCreate);
     }
   };
 
