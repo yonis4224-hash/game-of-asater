@@ -11,19 +11,19 @@ function getServerUrl(): string {
 
   // Render: guess backend URL from frontend URL
   if (host.endsWith(".onrender.com")) {
-    // front is "game-of-asater-front.onrender.com" → backend is "game-of-asater.onrender.com"
     const frontParts = host.split("-front.");
     if (frontParts.length === 2) {
       return `${window.location.protocol}//${frontParts[0]}.${frontParts[1]}`;
     }
   }
 
-  // Replit (old): backend on port 8080
-  if (host.includes("replit") || port === "5173") {
+  // Local dev: Vite on 5173 → backend on 8080
+  if (port === "5173" && (host === "localhost" || host === "127.0.0.1")) {
     return `${window.location.protocol}//${host}:8080`;
   }
 
-  // Replit (new .repl.co / picard): backend serves frontend on same origin — no override needed
+  // On Replit, port 8080 is mapped to external port 80 — never connect to :8080
+  // Same origin is always correct (backend serves API + frontend together)
   return "";
 }
 

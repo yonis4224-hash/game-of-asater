@@ -3,6 +3,10 @@ modules = ["nodejs-24"]
 [nix]
 channel = "stable-24_05"
 
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
 [deployment]
 run = "npm start"
 

@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock'",
-    "start": "cd artifacts/asateen-game && npm run build && cd ../api-server && node build.mjs && node --enable-source-maps dist/index.mjs",
+    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm on Replit for workspace support\" >&2 ;; esac'",
+    "start": "pnpm --filter @workspace/asateen-game run build && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/api-server run start",
     "dev:api": "cd artifacts/api-server && node build.mjs && node dist/index.mjs",
     "dev:front": "cd artifacts/asateen-game && npx vite --config vite.config.ts --host 0.0.0.0",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
