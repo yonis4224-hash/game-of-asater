@@ -5,9 +5,9 @@ services:
     region: frankfurt
     plan: free
     branch: main
-    rootDir: artifacts/api-server
-    buildCommand: npm install && node build.mjs
-    startCommand: node --enable-source-maps dist/index.mjs
+    rootDir: .
+    buildCommand: npm install && npm -w @workspace/api-server run build
+    startCommand: npm -w @workspace/api-server run start
     healthCheckPath: /api/healthz
     envVars:
       - key: NODE_VERSION

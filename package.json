@@ -2,7 +2,7 @@
   "name": "workspace",
   "version": "0.0.0",
   "private": true,
-  "workspaces": ["artifacts/*"],
+  "workspaces": ["artifacts/api-server", "artifacts/asateen-game", "lib/*"],
   "scripts": {
     "start": "npm run build:front -s && npm run build:api -s && npm run start:api -s",
     "build:front": "npm -w @workspace/asateen-game run build",
