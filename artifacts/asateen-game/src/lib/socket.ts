@@ -5,18 +5,31 @@ let socket: Socket | null = null;
 function getServerUrl(): string {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl) return envUrl;
-  if ((window as any).__REPL_ID__ || import.meta.env.VITE_REPLIT) {
-    return `${window.location.protocol}//${window.location.hostname}:8080`;
+
+  const host = window.location.hostname;
+  const port = window.location.port;
+
+  // Render: guess backend URL from frontend URL
+  if (host.endsWith(".onrender.com")) {
+    // front is "game-of-asater-front.onrender.com" → backend is "game-of-asater.onrender.com"
+    const frontParts = host.split("-front.");
+    if (frontParts.length === 2) {
+      return `${window.location.protocol}//${frontParts[0]}.${frontParts[1]}`;
+    }
   }
-  if (window.location.port === "5173") {
-    return `${window.location.protocol}//${window.location.hostname}:8080`;
+
+  // Replit: backend on port 8080
+  if (host.includes("replit") || port === "5173") {
+    return `${window.location.protocol}//${host}:8080`;
   }
+
   return "";
 }
 
 export function getSocket(): Socket {
   if (!socket) {
     const url = getServerUrl();
+    console.log("[Socket] Connecting to:", url || "same origin");
     socket = io(url || undefined, {
       path: "/socket.io",
       transports: ["polling", "websocket"],
@@ -27,6 +40,12 @@ export function getSocket(): Socket {
       reconnectionDelayMax: 10000,
       timeout: 30000,
     });
+    socket.on("connect_error", (err) => {
+      console.error("[Socket] Connection error:", err.message);
+    });
+    socket.on("connect", () => {
+      console.log("[Socket] Connected successfully");
+    });
   }
   return socket;
 }
@@ -36,11 +55,7 @@ export function emitWhenConnected(event: string, ...args: unknown[]): void {
   if (s.connected) {
     s.emit(event, ...args);
   } else {
-    const onConnect = () => {
-      s.emit(event, ...args);
-      s.off("connect", onConnect);
-    };
-    s.on("connect", onConnect);
+    s.once("connect", () => s.emit(event, ...args));
   }
 }
 
