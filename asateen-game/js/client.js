@@ -44,7 +44,7 @@ function selectCodename(card) {
 function copyCode() {
     if (currentRoom) {
         navigator.clipboard.writeText(currentRoom.code).then(() => {
-            alert('تم نسخ الكود إلى الحافظة!');
+            alert('تم نسخ الكود!');
         });
     }
 }
@@ -106,19 +106,17 @@ function updateLobby(room) {
     const playersList = document.getElementById('playersList');
     playersList.innerHTML = '';
 
-    Object.values(room.players).forEach(player => {
+    const avatars = ['👑', '⚡', '🎯', '🔥'];
+    Object.values(room.players).forEach((player, idx) => {
         const item = document.createElement('div');
         item.className = 'player-item';
-        const avatars = ['👑', '⚡', '🎯', '🔥'];
-        const avatarIndex = Object.values(room.players).indexOf(player);
         item.innerHTML = `
-            <div class="player-avatar">${avatars[avatarIndex] || '🎮'}</div>
+            <div class="player-avatar">${avatars[idx] || '🎮'}</div>
             <div class="player-info">
                 <div class="player-name">${player.name}</div>
                 <div class="player-status ready">جاهز للعب</div>
             </div>
-            ${player.socketId === room.host ? '<span class="player-badge badge-host">المضيف</span>' : ''}
-            ${player.socketId === room.host ? '' : '<span class="player-badge badge-ready">جاهز</span>'}
+            ${player.socketId === room.host ? '<span class="player-badge badge-host">المضيف</span>' : '<span class="player-badge badge-ready">جاهز</span>'}
         `;
         playersList.appendChild(item);
     });
@@ -126,10 +124,11 @@ function updateLobby(room) {
     const progress = (Object.keys(room.players).length / 4) * 100;
     document.getElementById('progressFill').style.width = progress + '%';
 
+    const startBtn = document.getElementById('startBtn');
     if (isHost) {
-        document.getElementById('startBtn').style.display = 'block';
+        startBtn.style.display = 'block';
     } else {
-        document.getElementById('startBtn').style.display = 'none';
+        startBtn.style.display = 'none';
     }
 }
 
@@ -250,7 +249,7 @@ socket.on('optionResult', (result) => {
     }
 });
 
-socket.on('scoreUpdate', ({ scores }) => {
+socket.on('scoreUpdate', () => {
     if (currentRoom) {
         updateScoreBoard(currentRoom.players);
     }

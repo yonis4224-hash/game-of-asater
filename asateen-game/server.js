@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const { createRoom, joinRoom, getRoom, startGame, submitAnswer, submitTrapAnswer, selectOption, disconnectPlayer } = require('./js/game-logic');
+const { createRoom, joinRoom, getRoom, startGame, submitTrapAnswer, submitOption, disconnectPlayer } = require('./js/game-logic');
 
 const app = express();
 const server = http.createServer(app);
@@ -56,11 +56,7 @@ io.on('connection', (socket) => {
         const room = getRoom(code);
         if (room) {
             submitTrapAnswer(code, socket.id, questionIndex, answer);
-            const player = Object.values(room.players).find(p => p.socketId === socket.id);
-            if (player) {
-                socket.emit('answerReceived', { playerName: player.name });
-            }
-            const allSubmitted = Object.values(room.players).every(p => p.trapAnswer !== null && p.trapAnswer !== undefined);
+            const allSubmitted = Object.values(room.players).every(p => p.trapAnswer !== null);
             if (allSubmitted) {
                 io.to(code).emit('allAnswersSubmitted');
             }
@@ -74,7 +70,7 @@ io.on('connection', (socket) => {
             if (result) {
                 socket.emit('optionResult', result);
                 io.to(code).emit('scoreUpdate', { scores: room.scores });
-                const allSubmitted = Object.values(room.players).every(p => p.selectedOption !== null && p.selectedOption !== undefined);
+                const allSubmitted = Object.values(room.players).every(p => p.selectedOption !== null);
                 if (allSubmitted) {
                     setTimeout(() => {
                         io.to(code).emit('nextQuestion');
