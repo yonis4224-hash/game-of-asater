@@ -58,9 +58,14 @@ io.on('connection', (socket) => {
 
         const result = submitTrapAnswer(code, socket.id, questionIndex, answer);
         if (result && result.allSubmitted) {
-            const options = buildOptions(code, questionIndex);
-            if (options) {
-                io.to(code).emit('showOptions', { options: options.options });
+            const teamOptions = buildOptions(code, questionIndex);
+            if (teamOptions) {
+                for (const [team, data] of Object.entries(teamOptions)) {
+                    const teamPlayers = Object.values(room.players).filter(p => p.team === team);
+                    for (const player of teamPlayers) {
+                        io.to(player.socketId).emit('showOptions', { options: data.options });
+                    }
+                }
             }
         }
     });

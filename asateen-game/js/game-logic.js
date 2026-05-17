@@ -111,7 +111,8 @@ function startGame(code) {
         totalRounds,
         questionsPerRound,
         timer: 30,
-        questions: {}
+        questions: {},
+        teamOptions: null
     };
 
     for (let r = 1; r <= totalRounds; r++) {
@@ -172,13 +173,60 @@ function buildOptions(code, questionIndex) {
     const question = room.game.questions[room.game.currentRound]?.[questionIndex];
     if (!question) return null;
 
-    const options = question.خيارات.map(text => ({ text }));
-    return { options, correctIndex: question.الجواب };
+    const teams = [...new Set(Object.values(room.players).map(p => p.team))];
+    const correctAnswer = question.خيارات[question.الجواب];
+    const defaultWrong = question.خيارات.filter((_, i) => i !== question.الجواب);
+
+    const teamOptions = {};
+
+    for (const team of teams) {
+        const opponentTraps = [];
+        const seenTexts = new Set([correctAnswer]);
+
+        for (const player of Object.values(room.players)) {
+            if (player.team !== team && player.trapAnswer && !seenTexts.has(player.trapAnswer)) {
+                opponentTraps.push({ text: player.trapAnswer, isTrap: true, fromPlayer: player.name });
+                seenTexts.add(player.trapAnswer);
+            }
+        }
+
+        let options;
+
+        if (opponentTraps.length === 0) {
+            options = question.خيارات.map(text => ({ text, isTrap: false }));
+        } else {
+            options = [{ text: correctAnswer, isTrap: false }];
+
+            for (const trap of opponentTraps) {
+                if (options.length >= 4) break;
+                options.push(trap);
+            }
+
+            for (const wrong of defaultWrong) {
+                if (options.length >= 4) break;
+                if (!seenTexts.has(wrong)) {
+                    options.push({ text: wrong, isTrap: false });
+                    seenTexts.add(wrong);
+                }
+            }
+
+            for (let i = options.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [options[i], options[j]] = [options[j], options[i]];
+            }
+        }
+
+        const correctIndex = options.findIndex(o => o.text === correctAnswer);
+        teamOptions[team] = { options, correctIndex };
+    }
+
+    room.game.teamOptions = teamOptions;
+    return teamOptions;
 }
 
 function calculateQuestionResults(code, questionIndex) {
     const room = rooms[code];
-    if (!room || !room.game) return null;
+    if (!room || !room.game || !room.game.teamOptions) return null;
 
     const question = room.game.questions[room.game.currentRound]?.[questionIndex];
     if (!question) return null;
@@ -190,25 +238,32 @@ function calculateQuestionResults(code, questionIndex) {
     for (const player of Object.values(room.players)) {
         if (player.selectedOption === null) continue;
 
-        const isCorrect = player.selectedOption === question.الجواب;
+        const teamOpts = room.game.teamOptions[player.team];
+        if (!teamOpts) continue;
+
+        const selectedOpt = teamOpts.options[player.selectedOption];
+        if (!selectedOpt) continue;
+
+        const isCorrect = player.selectedOption === teamOpts.correctIndex;
 
         if (isCorrect) {
             player.score += 100;
             correctPlayers.push({ name: player.name, team: player.team, score: player.score });
         } else {
-            const selectedAnswer = question.خيارات[player.selectedOption];
-
-            for (const other of Object.values(room.players)) {
-                if (other.socketId !== player.socketId && other.trapAnswer === selectedAnswer) {
-                    trapInfo[other.name] = (trapInfo[other.name] || 0) + 1;
-                    other.score += 50;
+            if (selectedOpt.isTrap && selectedOpt.fromPlayer) {
+                trapInfo[selectedOpt.fromPlayer] = (trapInfo[selectedOpt.fromPlayer] || 0) + 1;
+                const trapper = Object.values(room.players).find(p => p.name === selectedOpt.fromPlayer);
+                if (trapper) {
+                    trapper.score += 50;
+                    room.scores[trapper.socketId] = trapper.score;
                 }
             }
 
             wrongPlayers.push({
                 name: player.name,
                 team: player.team,
-                selectedAnswer
+                selectedAnswer: selectedOpt.text,
+                fromPlayer: selectedOpt.fromPlayer || null
             });
         }
 
@@ -231,6 +286,8 @@ function resetForNextQuestion(code) {
         player.trapAnswer = null;
         player.selectedOption = null;
     }
+
+    room.game.teamOptions = null;
 
     room.game.currentQuestionIndex++;
     const questions = room.game.questions[room.game.currentRound];
