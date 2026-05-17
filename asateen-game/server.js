@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const { createRoom, joinRoom, getRoom, startGame, submitTrapAnswer, submitOption, disconnectPlayer } = require('./js/game-logic');
+const { createRoom, joinRoom, getRoom, startGame, submitTrapAnswer, submitOption, disconnectPlayer, buildTeamOptions, calculateQuestionResults, resetForNextQuestion } = require('./js/game-logic');
 
 const app = express();
 const server = http.createServer(app);
@@ -54,29 +54,44 @@ io.on('connection', (socket) => {
 
     socket.on('submitTrapAnswer', ({ code, questionIndex, answer }) => {
         const room = getRoom(code);
-        if (room) {
-            submitTrapAnswer(code, socket.id, questionIndex, answer);
-            const allSubmitted = Object.values(room.players).every(p => p.trapAnswer !== null);
-            if (allSubmitted) {
-                io.to(code).emit('allAnswersSubmitted');
+        if (!room) return;
+
+        const result = submitTrapAnswer(code, socket.id, questionIndex, answer);
+        if (result && result.allSubmitted) {
+            const teamOptions = buildTeamOptions(code, questionIndex);
+            if (teamOptions) {
+                for (const [team, data] of Object.entries(teamOptions)) {
+                    const teamPlayers = Object.values(room.players).filter(p => p.team === team);
+                    for (const player of teamPlayers) {
+                        io.to(player.socketId).emit('showOptions', { options: data.options });
+                    }
+                }
             }
         }
     });
 
     socket.on('submitOption', ({ code, questionIndex, optionIndex }) => {
         const room = getRoom(code);
-        if (room) {
-            const result = submitOption(code, socket.id, questionIndex, optionIndex);
-            if (result) {
-                socket.emit('optionResult', result);
-                io.to(code).emit('scoreUpdate', { scores: room.scores });
-                const allSubmitted = Object.values(room.players).every(p => p.selectedOption !== null);
-                if (allSubmitted) {
-                    setTimeout(() => {
-                        io.to(code).emit('nextQuestion');
-                    }, 3000);
-                }
+        if (!room) return;
+
+        const result = submitOption(code, socket.id, questionIndex, optionIndex);
+        if (result && result.allSubmitted) {
+            const results = calculateQuestionResults(code, questionIndex);
+            if (results) {
+                io.to(code).emit('questionResults', results);
             }
+        }
+    });
+
+    socket.on('requestNextQuestion', ({ code }) => {
+        const room = getRoom(code);
+        if (!room || room.status !== 'playing') return;
+
+        const nextData = resetForNextQuestion(code);
+        if (nextData.isFinished) {
+            io.to(code).emit('gameFinished', { scores: room.scores, players: room.players, mode: room.mode });
+        } else {
+            io.to(code).emit('nextQuestion', nextData);
         }
     });
 

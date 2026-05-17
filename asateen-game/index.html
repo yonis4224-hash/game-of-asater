@@ -130,7 +130,7 @@
             <div class="divider"></div>
 
             <h3 style="margin-bottom: 20px; color: var(--gold);">
-                <i class="fas fa-users"></i> اللاعبون (<span id="playerCount">1</span>/4)
+                <i class="fas fa-users"></i> اللاعبون (<span id="playerCount">1</span>/8)
             </h3>
 
             <div class="players-list" id="playersList"></div>
@@ -221,6 +221,28 @@
         <div class="nav-buttons">
             <button class="btn btn-primary btn-block" onclick="confirmOption()">
                 <i class="fas fa-check-circle"></i> تأكيد الاختيار
+            </button>
+        </div>
+    </div>
+
+    <div class="screen" id="screen-question-results">
+        <div class="header-bar">
+            <div class="header-logo">لعبة الأساطير</div>
+            <div class="header-icons">
+                <div class="header-icon"><i class="fas fa-pause"></i></div>
+            </div>
+        </div>
+
+        <div class="results-container">
+            <h2 class="section-title">نتائج السؤال</h2>
+            <p class="section-subtitle">من أجاب بشكل صحيح ومن وقع في الفخ؟</p>
+
+            <div id="questionResultsContent"></div>
+
+            <div class="divider"></div>
+
+            <button class="btn btn-primary btn-large btn-block" onclick="nextQuestion()">
+                السؤال التالي <i class="fas fa-arrow-left"></i>
             </button>
         </div>
     </div>

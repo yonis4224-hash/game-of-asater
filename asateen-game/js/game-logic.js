@@ -110,7 +110,7 @@ function joinRoom(code, socketId, playerName) {
     if (room.status !== 'waiting') {
         return { success: false, message: 'اللعبة بدأت بالفعل' };
     }
-    if (Object.keys(room.players).length >= 4) {
+    if (Object.keys(room.players).length >= 8) {
         return { success: false, message: 'الغرفة ممتلئة' };
     }
     if (room.players[socketId]) {
@@ -132,6 +132,11 @@ function joinRoom(code, socketId, playerName) {
     };
     room.scores[socketId] = 0;
 
+    const totalPlayers = Object.keys(room.players).length;
+    if (totalPlayers === 2) room.mode = '1v1';
+    else if (totalPlayers === 4) room.mode = '2v2';
+    else if (totalPlayers >= 6) room.mode = '4v4';
+
     return { success: true, room };
 }
 
@@ -152,6 +157,7 @@ function startGame(code) {
         timer: 30,
         timerInterval: null,
         roundType: 'trap',
+        teamOptions: null,
         questions: {
             1: shuffleArray(cultureQuestions).slice(0, 5),
             2: shuffleArray(whoIsQuestions).slice(0, 5),
@@ -166,6 +172,11 @@ function startGame(code) {
         room.scores[id] = 0;
     });
 
+    const totalPlayers = Object.keys(room.players).length;
+    if (totalPlayers === 2) room.mode = '1v1';
+    else if (totalPlayers === 4) room.mode = '2v2';
+    else room.mode = '4v4';
+
     return {
         code,
         round: 1,
@@ -173,7 +184,8 @@ function startGame(code) {
         question: room.game.questions[1][0],
         roundType: 'trap',
         timer: 30,
-        players: room.players
+        players: room.players,
+        mode: room.mode
     };
 }
 
@@ -183,43 +195,157 @@ function submitTrapAnswer(code, socketId, questionIndex, answer) {
 
     room.players[socketId].trapAnswer = answer;
 
-    const allAnswers = Object.values(room.players)
-        .filter(p => p.trapAnswer !== null)
-        .map(p => ({ name: p.name, answer: p.trapAnswer }));
+    const submittedCount = Object.values(room.players).filter(p => p.trapAnswer !== null).length;
+    const totalCount = Object.keys(room.players).length;
 
-    return { allAnswers, playerCount: Object.keys(room.players).length };
+    return { submittedCount, totalCount, allSubmitted: submittedCount === totalCount };
 }
 
 function submitOption(code, socketId, questionIndex, optionIndex) {
     const room = rooms[code];
     if (!room || !room.players[socketId] || !room.game) return null;
 
+    room.players[socketId].selectedOption = optionIndex;
+
+    const submittedCount = Object.values(room.players).filter(p => p.selectedOption !== null).length;
+    const totalCount = Object.keys(room.players).length;
+
+    return { submittedCount, totalCount, allSubmitted: submittedCount === totalCount };
+}
+
+function buildTeamOptions(code, questionIndex) {
+    const room = rooms[code];
+    if (!room || !room.game) return null;
+
     const question = room.game.questions[room.game.currentRound]?.[questionIndex];
     if (!question) return null;
 
-    room.players[socketId].selectedOption = optionIndex;
+    const teams = [...new Set(Object.values(room.players).map(p => p.team))];
+    const teamOptions = {};
+    const correctAnswer = question.خيارات[question.الجواب];
 
-    const isCorrect = optionIndex === question.الجواب;
-    if (isCorrect) {
-        room.players[socketId].score += 100;
-        room.scores[socketId] = room.players[socketId].score;
+    for (const team of teams) {
+        const opponentAnswers = [];
+        const seenAnswers = new Set([correctAnswer]);
+
+        for (const player of Object.values(room.players)) {
+            if (player.team !== team && player.trapAnswer !== null) {
+                if (!seenAnswers.has(player.trapAnswer)) {
+                    opponentAnswers.push({ text: player.trapAnswer, fromPlayer: player.name });
+                    seenAnswers.add(player.trapAnswer);
+                }
+            }
+        }
+
+        const defaultWrong = question.خيارات
+            .map((opt, idx) => ({ text: opt, idx }))
+            .filter(a => a.idx !== question.الجواب && !seenAnswers.has(a.text));
+
+        const options = [{ text: correctAnswer, isCorrect: true }];
+
+        for (const ans of opponentAnswers) {
+            if (options.length >= 4) break;
+            options.push({ text: ans.text, isCorrect: false, fromPlayer: ans.fromPlayer });
+        }
+
+        for (const ans of defaultWrong) {
+            if (options.length >= 4) break;
+            options.push({ text: ans.text, isCorrect: false, isDefault: true });
+        }
+
+        for (let i = options.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [options[i], options[j]] = [options[j], options[i]];
+        }
+
+        const correctIndex = options.findIndex(o => o.isCorrect);
+        teamOptions[team] = { options, correctIndex };
     }
 
-    let trapBonus = 0;
-    Object.values(room.players).forEach(player => {
-        if (player.socketId !== socketId && player.selectedOption === optionIndex && !isCorrect) {
-            trapBonus += 50;
+    room.game.teamOptions = teamOptions;
+    return teamOptions;
+}
+
+function calculateQuestionResults(code, questionIndex) {
+    const room = rooms[code];
+    if (!room || !room.game || !room.game.teamOptions) return null;
+
+    const correctPlayers = [];
+    const wrongPlayers = [];
+    const trapInfo = {};
+
+    for (const player of Object.values(room.players)) {
+        if (player.selectedOption === null) continue;
+
+        const teamOpts = room.game.teamOptions[player.team];
+        if (!teamOpts) continue;
+
+        const isCorrect = player.selectedOption === teamOpts.correctIndex;
+
+        if (isCorrect) {
+            player.score += 100;
+            correctPlayers.push({ name: player.name, team: player.team, score: player.score });
+        } else {
+            const selectedOpt = teamOpts.options[player.selectedOption];
+            const fromPlayer = selectedOpt?.fromPlayer || null;
+
+            if (fromPlayer) {
+                trapInfo[fromPlayer] = (trapInfo[fromPlayer] || 0) + 1;
+                const trapper = Object.values(room.players).find(p => p.name === fromPlayer);
+                if (trapper) trapper.score += 50;
+            }
+
+            wrongPlayers.push({
+                name: player.name,
+                team: player.team,
+                selectedAnswer: selectedOpt?.text || '',
+                fromPlayer
+            });
         }
-    });
-    room.players[socketId].score += trapBonus;
-    room.scores[socketId] = room.players[socketId].score;
+
+        room.scores[player.socketId] = player.score;
+    }
+
+    const teamScores = {};
+    for (const player of Object.values(room.players)) {
+        teamScores[player.team] = (teamScores[player.team] || 0) + player.score;
+    }
+
+    return { correctPlayers, wrongPlayers, trapInfo, scores: room.scores, teamScores, mode: room.mode };
+}
+
+function resetForNextQuestion(code) {
+    const room = rooms[code];
+    if (!room || !room.game) return null;
+
+    for (const player of Object.values(room.players)) {
+        player.trapAnswer = null;
+        player.selectedOption = null;
+    }
+
+    room.game.teamOptions = null;
+
+    room.game.currentQuestionIndex++;
+    const questions = room.game.questions[room.game.currentRound];
+
+    if (room.game.currentQuestionIndex >= questions.length) {
+        room.game.currentRound++;
+        room.game.currentQuestionIndex = 0;
+
+        if (room.game.currentRound > room.game.totalRounds) {
+            room.status = 'finished';
+            return { isFinished: true };
+        }
+    }
 
     return {
-        isCorrect,
-        correctAnswer: question.خيارات[question.الجواب],
-        selectedAnswer: question.خيارات[optionIndex],
-        score: room.players[socketId].score,
-        trapBonus
+        round: room.game.currentRound,
+        questionIndex: room.game.currentQuestionIndex,
+        question: room.game.questions[room.game.currentRound]?.[room.game.currentQuestionIndex],
+        timer: 30,
+        players: room.players,
+        mode: room.mode,
+        isFinished: false
     };
 }
 
@@ -249,5 +375,8 @@ module.exports = {
     submitTrapAnswer,
     submitOption,
     disconnectPlayer,
+    buildTeamOptions,
+    calculateQuestionResults,
+    resetForNextQuestion,
     rooms
 };
