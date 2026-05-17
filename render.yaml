@@ -1,14 +1,9 @@
 services:
   - type: web
-    name: game-of-asater-api
+    name: game-of-asater
     env: node
-    region: frankfurt
-    plan: free
-    branch: main
-    rootDir: .
-    buildCommand: npm install && npm -w @workspace/api-server run build
-    startCommand: npm -w @workspace/api-server run start
-    healthCheckPath: /api/healthz
+    buildCommand: npm install
+    startCommand: node server.js
     envVars:
-      - key: NODE_VERSION
-        value: 22
+      - key: NODE_ENV
+        value: production
