@@ -96,6 +96,23 @@ function joinRoom(code, socketId, playerName, avatar) {
     return { success: true, room };
 }
 
+function switchTeam(code, socketId, newTeam) {
+    const room = rooms[code];
+    if (!room || !room.players[socketId]) return null;
+    if (room.status !== 'waiting') return null;
+
+    const player = room.players[socketId];
+    if (newTeam !== 'A' && newTeam !== 'B') return null;
+
+    player.team = newTeam;
+
+    if (newTeam === 'A' && !room.players[Object.keys(room.players).find(id => room.players[id].isLeader && room.players[id].team === 'A')]) {
+        player.isLeader = true;
+    }
+
+    return room;
+}
+
 function kickPlayer(code, socketId, targetSocketId) {
     const room = rooms[code];
     if (!room) return { success: false, message: 'الغرفة غير موجودة' };
@@ -610,6 +627,7 @@ function disconnectPlayer(socketId) {
 module.exports = {
     createRoom,
     joinRoom,
+    switchTeam,
     kickPlayer,
     setLeader,
     updateTeamNames,

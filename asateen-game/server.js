@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const {
-    createRoom, joinRoom, kickPlayer, setLeader, updateTeamNames,
+    createRoom, joinRoom, switchTeam, kickPlayer, setLeader, updateTeamNames,
     getRoom, startGame, submitTrapAnswer, submitOption, disconnectPlayer,
     buildOptions, calculateQuestionResults, resetForNextQuestion,
     startDrawRound, submitDrawGuess, startCodenamesRound, revealCodenameWord,
@@ -53,6 +53,11 @@ io.on('connection', (socket) => {
             console.error('joinRoom error:', err);
             socket.emit('error', { message: 'حدث خطأ أثناء الانضمام' });
         }
+    });
+
+    socket.on('switchTeam', ({ code, newTeam }) => {
+        const room = switchTeam(code, socket.id, newTeam);
+        if (room) io.to(code).emit('roomUpdate', room);
     });
 
     socket.on('kickPlayer', ({ code, targetSocketId }) => {

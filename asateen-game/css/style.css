@@ -222,6 +222,14 @@ body {
     border-radius: 14px; margin-bottom: 10px; position: relative;
 }
 
+.team-switch-btn {
+    background: var(--purple); color: white; border: none; padding: 6px 14px;
+    border-radius: 10px; cursor: pointer; font-family: 'Tajawal'; font-size: 0.8rem;
+    font-weight: 700; transition: all 0.3s ease; white-space: nowrap;
+}
+
+.team-switch-btn:hover { transform: scale(1.05); box-shadow: 0 0 15px rgba(108, 52, 131, 0.5); }
+
 .player-avatar {
     width: 42px; height: 42px; border-radius: 50%;
     background: linear-gradient(135deg, var(--purple), var(--gold));

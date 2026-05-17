@@ -158,21 +158,30 @@ function updateLobby(room) {
     playersList.innerHTML = '';
 
     const teamNames = room.teamNames || { A: 'الفريق أ', B: 'الفريق ب' };
-    const teamColors = { A: 'var(--gold)', B: 'var(--purple-light)' };
+    const teamColors = { A: '#E74C3C', B: '#3498DB' };
+    const teamBgColors = { A: 'rgba(231, 76, 60, 0.15)', B: 'rgba(52, 152, 219, 0.15)' };
 
     Object.values(room.players).forEach((player) => {
         const item = document.createElement('div');
         item.className = 'player-item';
+        item.style.borderLeft = `4px solid ${teamColors[player.team]}`;
+        item.style.background = teamBgColors[player.team];
+
+        const isMe = player.socketId === socket.id;
+
         item.innerHTML = `
             ${getAvatarHTML(player.avatar)}
             <div class="player-info">
-                <div class="player-name">${player.name}</div>
-                <div class="player-status ready">${teamNames[player.team]}</div>
+                <div class="player-name">${player.name} ${isMe ? '(أنت)' : ''}</div>
+                <div class="player-status ready">${teamNames[player.team]} ${player.isLeader ? '👑' : ''}</div>
             </div>
-            <span class="player-badge" style="background: ${teamColors[player.team]}; color: white;">${teamNames[player.team]}</span>
-            ${player.isLeader ? '<span class="player-badge badge-leader">القائد</span>' : ''}
-            ${player.socketId === room.host ? '<span class="player-badge badge-host">المضيف</span>' : ''}
-            ${isHost && player.socketId !== room.host ? `<button class="kick-btn" onclick="kickPlayer('${player.socketId}')"><i class="fas fa-times"></i></button>` : ''}
+            ${isMe ? `
+                <button class="team-switch-btn" onclick="switchTeam('${player.team === 'A' ? 'B' : 'A'}')"
+                    style="background: ${teamColors[player.team === 'A' ? 'B' : 'A']}; color: white; border: none; padding: 6px 14px; border-radius: 10px; cursor: pointer; font-family: 'Tajawal'; font-size: 0.8rem; font-weight: 700;">
+                    انتقال للفريق ${player.team === 'A' ? 'ب' : 'أ'}
+                </button>
+            ` : ''}
+            ${isHost && !isMe ? `<button class="kick-btn" onclick="kickPlayer('${player.socketId}')"><i class="fas fa-times"></i></button>` : ''}
         `;
         playersList.appendChild(item);
     });
@@ -186,6 +195,10 @@ function updateLobby(room) {
 
 function kickPlayer(targetSocketId) {
     if (currentRoom) socket.emit('kickPlayer', { code: currentRoom.code, targetSocketId });
+}
+
+function switchTeam(newTeam) {
+    if (currentRoom) socket.emit('switchTeam', { code: currentRoom.code, newTeam });
 }
 
 function updateTeamNames() {
