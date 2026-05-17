@@ -9,17 +9,29 @@ let playerName = localStorage.getItem('playerName') || '';
 let isHost = false;
 let selectedAvatar = parseInt(localStorage.getItem('selectedAvatar')) || 0;
 
-const avatars = [
-    { name: 'الأسد', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#F5A623"/><circle cx="50" cy="50" r="35" fill="#FFD700"/><text x="50" y="42" text-anchor="middle" font-size="18">🦁</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
-    { name: 'النمر', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#E74C3C"/><circle cx="50" cy="50" r="35" fill="#FF6B35"/><text x="50" y="42" text-anchor="middle" font-size="18">🐯</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
-    { name: 'الصقر', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#3498DB"/><circle cx="50" cy="50" r="35" fill="#5DADE2"/><text x="50" y="42" text-anchor="middle" font-size="18">🦅</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
-    { name: 'الذئب', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#8E44AD"/><circle cx="50" cy="50" r="35" fill="#A569BD"/><text x="50" y="42" text-anchor="middle" font-size="18">🐺</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
-    { name: 'التنين', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#27AE60"/><circle cx="50" cy="50" r="35" fill="#2ECC71"/><text x="50" y="42" text-anchor="middle" font-size="18">🐉</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
-    { name: 'الملك', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#F39C12"/><circle cx="50" cy="50" r="35" fill="#F5B041"/><text x="50" y="38" text-anchor="middle" font-size="16">👑</text><circle cx="38" cy="48" r="4" fill="#333"/><circle cx="62" cy="48" r="4" fill="#333"/><path d="M42 60 Q50 67 58 60" stroke="#333" stroke-width="2" fill="none"/></svg>` },
-    { name: 'الفارس', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#7F8C8D"/><circle cx="50" cy="50" r="35" fill="#95A5A6"/><text x="50" y="42" text-anchor="middle" font-size="18">⚔️</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
-    { name: 'الساحر', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#6C3483"/><circle cx="50" cy="50" r="35" fill="#8E44AD"/><text x="50" y="42" text-anchor="middle" font-size="18">🧙</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
-    { name: 'النinja', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#2C3E50"/><circle cx="50" cy="50" r="35" fill="#34495E"/><text x="50" y="42" text-anchor="middle" font-size="18">🥷</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
-    { name: 'البطل', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#E74C3C"/><circle cx="50" cy="50" r="35" fill="#EC7063"/><text x="50" y="42" text-anchor="middle" font-size="18">🦸</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` }
+const avatarFiles = [
+    'انمي.jpeg',
+    'تنزيل (1).jpeg',
+    'تنزيل (2).jpeg',
+    'تنزيل (3).jpeg',
+    'تنزيل (4).jpeg',
+    'تنزيل (5).jpeg',
+    'تنزيل (6).jpeg',
+    'تنزيل (7).jpeg',
+    'تنزيل (8).jpeg',
+    'تنزيل (9).jpeg',
+    'تنزيل (10).jpeg',
+    'تنزيل (11).jpeg',
+    'تنزيل (12).jpeg',
+    'تنزيل (13).jpeg',
+    'جيوكريس.jpeg',
+    'Art by @gyo14keres on X.jpeg',
+    'cute DP.jpeg',
+    'Mesut Özil  #YaGunnersYa   _ #COYG  #Arsenal.jpeg',
+    'non.jpeg',
+    'trajes personaje.jpeg',
+    'Viktor Gyokeres Celebration 🎉.jpeg',
+    'viktor gyokeres.jpeg'
 ];
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -32,11 +44,10 @@ function initAvatarSelector() {
     const container = document.getElementById('avatarSelector');
     if (!container) return;
     container.innerHTML = '';
-    avatars.forEach((avatar, i) => {
+    avatarFiles.forEach((file, i) => {
         const div = document.createElement('div');
         div.className = 'avatar-option' + (selectedAvatar === i ? ' selected' : '');
-        div.innerHTML = avatar.svg;
-        div.title = avatar.name;
+        div.innerHTML = `<img src="avatars/${encodeURIComponent(file)}" alt="avatar ${i+1}">`;
         div.onclick = () => {
             selectedAvatar = i;
             localStorage.setItem('selectedAvatar', i);
@@ -50,8 +61,8 @@ function initAvatarSelector() {
 
 function getAvatarHTML(avatarIndex) {
     const idx = typeof avatarIndex === 'number' ? avatarIndex : (parseInt(avatarIndex) || 0);
-    const avatar = avatars[idx] || avatars[0];
-    return `<div class="player-avatar">${avatar.svg}</div>`;
+    const file = avatarFiles[idx] || avatarFiles[0];
+    return `<div class="player-avatar"><img src="avatars/${encodeURIComponent(file)}" alt="avatar"></div>`;
 }
 
 function showScreen(screenId) {
