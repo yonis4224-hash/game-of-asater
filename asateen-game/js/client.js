@@ -181,9 +181,9 @@ function loadQuestion(gameData) {
     document.getElementById('roundNumber').textContent = gameData.round;
 
     const roundNames = {
-        1: 'الجولة الأولى - خدعة المعرفة',
+        1: 'الجولة الأولى - ثقافة عامة',
         2: 'الجولة الثانية - من هذا؟',
-        3: 'الجولة الثالثة - خدعة الترفيه'
+        3: 'الجولة الثالثة - رياضة'
     };
     document.getElementById('roundTitle').textContent = roundNames[gameData.round] || `الجولة ${gameData.round}`;
 
