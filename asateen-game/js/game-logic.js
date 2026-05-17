@@ -453,14 +453,21 @@ function startCodenamesRound(code) {
     room.game.codenamesTeamWords = { A: teamAWords, B: teamBWords, assassin: assassinWord };
     room.game.codenamesRevealed = {};
     room.game.codenamesCurrentTeam = 'A';
-    room.game.codenamesTimer = 120;
+    room.game.codenamesScore = { A: 0, B: 0 };
+
+    const leaders = {};
+    Object.values(room.players).forEach(p => {
+        if (p.isLeader) leaders[p.team] = p.socketId;
+    });
 
     return {
         words,
         teamNames: room.teamNames,
         players: room.players,
         currentTeam: 'A',
-        timer: 120
+        teamWords: { A: teamAWords, B: teamBWords },
+        leaders,
+        teamColors: { A: 'red', B: 'blue' }
     };
 }
 
@@ -482,7 +489,7 @@ function revealCodenameWord(code, socketId, wordIndex) {
         room.game.codenamesRevealed[wordIndex] = 'assassin';
         const winningTeam = player.team === 'A' ? 'B' : 'A';
         room.game.codenamesWinner = winningTeam;
-        return { revealed: 'assassin', winner: winningTeam, teamNames: room.teamNames };
+        return { revealed: 'assassin', winner: winningTeam, teamNames: room.teamNames, teamColors: { A: 'red', B: 'blue' } };
     }
 
     if (teamAWords.includes(word)) {
@@ -490,9 +497,9 @@ function revealCodenameWord(code, socketId, wordIndex) {
         room.game.codenamesScore.A++;
         if (room.game.codenamesScore.A >= teamAWords.length) {
             room.game.codenamesWinner = 'A';
-            return { revealed: 'A', score: room.game.codenamesScore, winner: 'A', teamNames: room.teamNames };
+            return { revealed: 'A', score: room.game.codenamesScore, winner: 'A', teamNames: room.teamNames, teamColors: { A: 'red', B: 'blue' } };
         }
-        return { revealed: 'A', score: room.game.codenamesScore, teamNames: room.teamNames };
+        return { revealed: 'A', score: room.game.codenamesScore, teamNames: room.teamNames, teamColors: { A: 'red', B: 'blue' } };
     }
 
     if (teamBWords.includes(word)) {
@@ -500,14 +507,14 @@ function revealCodenameWord(code, socketId, wordIndex) {
         room.game.codenamesScore.B++;
         if (room.game.codenamesScore.B >= teamBWords.length) {
             room.game.codenamesWinner = 'B';
-            return { revealed: 'B', score: room.game.codenamesScore, winner: 'B', teamNames: room.teamNames };
+            return { revealed: 'B', score: room.game.codenamesScore, winner: 'B', teamNames: room.teamNames, teamColors: { A: 'red', B: 'blue' } };
         }
-        return { revealed: 'B', score: room.game.codenamesScore, teamNames: room.teamNames };
+        return { revealed: 'B', score: room.game.codenamesScore, teamNames: room.teamNames, teamColors: { A: 'red', B: 'blue' } };
     }
 
     room.game.codenamesRevealed[wordIndex] = 'neutral';
     room.game.codenamesCurrentTeam = player.team === 'A' ? 'B' : 'A';
-    return { revealed: 'neutral', score: room.game.codenamesScore, currentTeam: room.game.codenamesCurrentTeam, teamNames: room.teamNames };
+    return { revealed: 'neutral', score: room.game.codenamesScore, currentTeam: room.game.codenamesCurrentTeam, teamNames: room.teamNames, teamColors: { A: 'red', B: 'blue' } };
 }
 
 function startOvertime(code) {

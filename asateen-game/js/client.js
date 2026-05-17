@@ -7,138 +7,51 @@ let timer = null;
 let timeLeft = 30;
 let playerName = localStorage.getItem('playerName') || '';
 let isHost = false;
-let myAvatar = localStorage.getItem('myAvatar') || null;
+let selectedAvatar = parseInt(localStorage.getItem('selectedAvatar')) || 0;
 
-const avatarParts = {
-    faces: ['😊', '😎', '🤓', '😤', '🧐', '😏'],
-    eyes: ['👁️', '👀', '🔵', '⭐', '💫', '🔥'],
-    glasses: ['🕶️', '👓', '🥽', '❌'],
-    hairs: ['💇', '🦱', '🦲', '🎩', '👒', '❌'],
-    hats: ['🎩', '👑', '🧢', '⛑️', '❌'],
-    colors: ['#F5A623', '#E74C3C', '#3498DB', '#2ECC71', '#9B59B6', '#FFFFFF']
-};
-
-let avatarState = { face: 0, eyes: 0, glasses: 3, hair: 5, hat: 4, color: 0 };
+const avatars = [
+    { name: 'الأسد', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#F5A623"/><circle cx="50" cy="50" r="35" fill="#FFD700"/><text x="50" y="42" text-anchor="middle" font-size="18">🦁</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
+    { name: 'النمر', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#E74C3C"/><circle cx="50" cy="50" r="35" fill="#FF6B35"/><text x="50" y="42" text-anchor="middle" font-size="18">🐯</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
+    { name: 'الصقر', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#3498DB"/><circle cx="50" cy="50" r="35" fill="#5DADE2"/><text x="50" y="42" text-anchor="middle" font-size="18">🦅</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
+    { name: 'الذئب', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#8E44AD"/><circle cx="50" cy="50" r="35" fill="#A569BD"/><text x="50" y="42" text-anchor="middle" font-size="18">🐺</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
+    { name: 'التنين', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#27AE60"/><circle cx="50" cy="50" r="35" fill="#2ECC71"/><text x="50" y="42" text-anchor="middle" font-size="18">🐉</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
+    { name: 'الملك', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#F39C12"/><circle cx="50" cy="50" r="35" fill="#F5B041"/><text x="50" y="38" text-anchor="middle" font-size="16">👑</text><circle cx="38" cy="48" r="4" fill="#333"/><circle cx="62" cy="48" r="4" fill="#333"/><path d="M42 60 Q50 67 58 60" stroke="#333" stroke-width="2" fill="none"/></svg>` },
+    { name: 'الفارس', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#7F8C8D"/><circle cx="50" cy="50" r="35" fill="#95A5A6"/><text x="50" y="42" text-anchor="middle" font-size="18">⚔️</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
+    { name: 'الساحر', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#6C3483"/><circle cx="50" cy="50" r="35" fill="#8E44AD"/><text x="50" y="42" text-anchor="middle" font-size="18">🧙</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
+    { name: 'النinja', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#2C3E50"/><circle cx="50" cy="50" r="35" fill="#34495E"/><text x="50" y="42" text-anchor="middle" font-size="18">🥷</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` },
+    { name: 'البطل', svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#E74C3C"/><circle cx="50" cy="50" r="35" fill="#EC7063"/><text x="50" y="42" text-anchor="middle" font-size="18">🦸</text><circle cx="38" cy="35" r="4" fill="#333"/><circle cx="62" cy="35" r="4" fill="#333"/><path d="M42 55 Q50 62 58 55" stroke="#333" stroke-width="2" fill="none"/></svg>` }
+];
 
 document.addEventListener('DOMContentLoaded', () => {
     if (playerName) document.getElementById('playerNameInput').value = playerName;
-    if (myAvatar) avatarState = JSON.parse(myAvatar);
-    initAvatarCreator();
-    renderAvatar();
+    initAvatarSelector();
     setupCanvas();
 });
 
-function initAvatarCreator() {
-    const faceDiv = document.getElementById('faceOptions');
-    avatarParts.faces.forEach((f, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'avatar-opt-btn' + (avatarState.face === i ? ' selected' : '');
-        btn.textContent = f;
-        btn.onclick = () => { avatarState.face = i; updateAvatarBtns('face', i); renderAvatar(); saveAvatar(); };
-        faceDiv.appendChild(btn);
-    });
-
-    const eyeDiv = document.getElementById('eyeOptions');
-    avatarParts.eyes.forEach((e, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'avatar-opt-btn' + (avatarState.eyes === i ? ' selected' : '');
-        btn.textContent = e;
-        btn.onclick = () => { avatarState.eyes = i; updateAvatarBtns('eyes', i); renderAvatar(); saveAvatar(); };
-        eyeDiv.appendChild(btn);
-    });
-
-    const glassDiv = document.getElementById('glassesOptions');
-    avatarParts.glasses.forEach((g, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'avatar-opt-btn' + (avatarState.glasses === i ? ' selected' : '');
-        btn.textContent = g;
-        btn.onclick = () => { avatarState.glasses = i; updateAvatarBtns('glasses', i); renderAvatar(); saveAvatar(); };
-        glassDiv.appendChild(btn);
-    });
-
-    const hairDiv = document.getElementById('hairOptions');
-    avatarParts.hairs.forEach((h, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'avatar-opt-btn' + (avatarState.hair === i ? ' selected' : '');
-        btn.textContent = h;
-        btn.onclick = () => { avatarState.hair = i; updateAvatarBtns('hair', i); renderAvatar(); saveAvatar(); };
-        hairDiv.appendChild(btn);
-    });
-
-    const hatDiv = document.getElementById('hatOptions');
-    avatarParts.hats.forEach((h, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'avatar-opt-btn' + (avatarState.hat === i ? ' selected' : '');
-        btn.textContent = h;
-        btn.onclick = () => { avatarState.hat = i; updateAvatarBtns('hat', i); renderAvatar(); saveAvatar(); };
-        hatDiv.appendChild(btn);
-    });
-
-    const colorDiv = document.getElementById('colorOptions');
-    avatarParts.colors.forEach((c, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'avatar-opt-btn' + (avatarState.color === i ? ' selected' : '');
-        btn.style.background = c;
-        btn.onclick = () => { avatarState.color = i; updateAvatarBtns('color', i); renderAvatar(); saveAvatar(); };
-        colorDiv.appendChild(btn);
+function initAvatarSelector() {
+    const container = document.getElementById('avatarSelector');
+    if (!container) return;
+    container.innerHTML = '';
+    avatars.forEach((avatar, i) => {
+        const div = document.createElement('div');
+        div.className = 'avatar-option' + (selectedAvatar === i ? ' selected' : '');
+        div.innerHTML = avatar.svg;
+        div.title = avatar.name;
+        div.onclick = () => {
+            selectedAvatar = i;
+            localStorage.setItem('selectedAvatar', i);
+            container.querySelectorAll('.avatar-option').forEach((el, j) => {
+                el.classList.toggle('selected', j === i);
+            });
+        };
+        container.appendChild(div);
     });
 }
 
-function updateAvatarBtns(type, index) {
-    const map = { face: 'faceOptions', eyes: 'eyeOptions', glasses: 'glassesOptions', hair: 'hairOptions', hat: 'hatOptions', color: 'colorOptions' };
-    document.querySelectorAll(`#${map[type]} .avatar-opt-btn`).forEach((b, i) => {
-        b.classList.toggle('selected', i === index);
-    });
-}
-
-function renderAvatar() {
-    const preview = document.getElementById('avatarPreview');
-    if (!preview) return;
-    const face = avatarParts.faces[avatarState.face];
-    const eyes = avatarParts.eyes[avatarState.eyes];
-    const glass = avatarParts.glasses[avatarState.glasses];
-    const hair = avatarParts.hairs[avatarState.hair];
-    const hat = avatarParts.hats[avatarState.hat];
-    const color = avatarParts.colors[avatarState.color];
-
-    preview.innerHTML = `
-        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="60" cy="60" r="55" fill="${color}" opacity="0.3"/>
-            <circle cx="60" cy="65" r="35" fill="${color}" opacity="0.8"/>
-            <text x="60" y="55" text-anchor="middle" font-size="20">${eyes}</text>
-            <text x="60" y="75" text-anchor="middle" font-size="16">${face}</text>
-            ${glass !== '❌' ? `<text x="60" y="52" text-anchor="middle" font-size="18">${glass}</text>` : ''}
-            ${hair !== '❌' ? `<text x="60" y="35" text-anchor="middle" font-size="18">${hair}</text>` : ''}
-            ${hat !== '❌' ? `<text x="60" y="25" text-anchor="middle" font-size="20">${hat}</text>` : ''}
-        </svg>
-    `;
-}
-
-function saveAvatar() {
-    myAvatar = JSON.stringify(avatarState);
-    localStorage.setItem('myAvatar', myAvatar);
-}
-
-function getAvatarSVG(avatar) {
-    if (!avatar) return `<div class="player-avatar">🎮</div>`;
-    const s = typeof avatar === 'string' ? JSON.parse(avatar) : avatar;
-    const face = avatarParts.faces[s.face] || '😊';
-    const eyes = avatarParts.eyes[s.eyes] || '👁️';
-    const glass = avatarParts.glasses[s.glasses] || '';
-    const hair = avatarParts.hairs[s.hair] || '';
-    const hat = avatarParts.hats[s.hat] || '';
-    const color = avatarParts.colors[s.color] || '#F5A623';
-
-    return `<div class="player-avatar">
-        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="60" cy="65" r="35" fill="${color}" opacity="0.8"/>
-            <text x="60" y="55" text-anchor="middle" font-size="20">${eyes}</text>
-            <text x="60" y="75" text-anchor="middle" font-size="16">${face}</text>
-            ${glass && glass !== '❌' ? `<text x="60" y="52" text-anchor="middle" font-size="18">${glass}</text>` : ''}
-            ${hair && hair !== '❌' ? `<text x="60" y="35" text-anchor="middle" font-size="18">${hair}</text>` : ''}
-            ${hat && hat !== '❌' ? `<text x="60" y="25" text-anchor="middle" font-size="20">${hat}</text>` : ''}
-        </svg>
-    </div>`;
+function getAvatarHTML(avatarIndex) {
+    const idx = typeof avatarIndex === 'number' ? avatarIndex : (parseInt(avatarIndex) || 0);
+    const avatar = avatars[idx] || avatars[0];
+    return `<div class="player-avatar">${avatar.svg}</div>`;
 }
 
 function showScreen(screenId) {
@@ -191,7 +104,7 @@ function createRoom() {
     playerName = name;
     localStorage.setItem('playerName', name);
     isHost = true;
-    socket.emit('createRoom', { playerName: name, avatar: myAvatar });
+    socket.emit('createRoom', { playerName: name, avatar: selectedAvatar });
 }
 
 function joinRoom() {
@@ -202,7 +115,7 @@ function joinRoom() {
     playerName = name;
     localStorage.setItem('playerName', name);
     isHost = false;
-    socket.emit('joinRoom', { code, playerName: name, avatar: myAvatar });
+    socket.emit('joinRoom', { code, playerName: name, avatar: selectedAvatar });
 }
 
 socket.on('roomCreated', (room) => {
@@ -240,7 +153,7 @@ function updateLobby(room) {
         const item = document.createElement('div');
         item.className = 'player-item';
         item.innerHTML = `
-            ${getAvatarSVG(player.avatar)}
+            ${getAvatarHTML(player.avatar)}
             <div class="player-info">
                 <div class="player-name">${player.name}</div>
                 <div class="player-status ready">${teamNames[player.team]}</div>
@@ -455,9 +368,7 @@ socket.on('startDrawRound', (data) => {
 });
 
 socket.on('drawGuessResult', (result) => {
-    if (result.isCorrect) {
-        alert('✅ تخمين صحيح! +100 نقطة');
-    }
+    if (result.isCorrect) alert('✅ تخمين صحيح! +100 نقطة');
 });
 
 socket.on('scoreUpdate', () => {
@@ -466,18 +377,38 @@ socket.on('scoreUpdate', () => {
 
 socket.on('startCodenamesRound', (data) => {
     hideWaiting();
-    renderCodenames(data.words, data.currentTeam, data.teamNames);
+    const myPlayer = data.players[socket.id];
+    const isLeader = myPlayer && myPlayer.isLeader;
+
+    renderCodenames(data.words, data.currentTeam, data.teamNames, data.teamWords, data.leaders, isLeader);
     updateScoreBoard(data.players, currentRoom?.mode, data.teamNames);
     showScreen('screen-codenames');
-    startTimer(data.timer, 'codenamesTimer');
 });
 
-function renderCodenames(words, currentTeam, teamNames) {
+function renderCodenames(words, currentTeam, teamNames, teamWords, leaders, isLeader) {
     const grid = document.getElementById('codenamesGrid');
     grid.innerHTML = '';
     const tn = teamNames || { A: 'الفريق أ', B: 'الفريق ب' };
 
-    document.getElementById('codenamesHint').textContent = `دور ${tn[currentTeam]}`;
+    const hintDiv = document.getElementById('codenamesHint');
+    const colorNames = { A: '🔴 الأحمر', B: '🔵 الأزرق' };
+    hintDiv.innerHTML = `دور <span style="color: ${currentTeam === 'A' ? '#E74C3C' : '#3498DB'}">${colorNames[currentTeam]}</span> - ${tn[currentTeam]}`;
+
+    if (isLeader && teamWords) {
+        const myTeam = Object.keys(teamWords).find(t => leaders && leaders[t] === socket.id);
+        if (myTeam && teamWords[myTeam]) {
+            const hintArea = document.getElementById('codenamesLeaderHint');
+            if (hintArea) {
+                hintArea.style.display = 'block';
+                hintArea.innerHTML = `
+                    <div style="font-size: 0.85rem; color: #B8A9C9; margin-bottom: 5px;">🔑 كلمات فريقك (${colorNames[myTeam]}):</div>
+                    <div style="font-size: 0.95rem; font-weight: 700; color: ${myTeam === 'A' ? '#E74C3C' : '#3498DB'};">
+                        ${teamWords[myTeam].join(' • ')}
+                    </div>
+                `;
+            }
+        }
+    }
 
     words.forEach((word, index) => {
         const card = document.createElement('div');
@@ -492,34 +423,30 @@ function renderCodenames(words, currentTeam, teamNames) {
 
 socket.on('codenameRevealed', (result) => {
     const cards = document.querySelectorAll('.codename-card');
-    const revealed = Object.entries(result.revealed || {});
-
-    revealed.forEach(([index, type]) => {
+    Object.entries(result.revealed || {}).forEach(([index, type]) => {
         if (cards[index]) {
             cards[index].classList.add('revealed');
-            if (type === 'A') cards[index].style.background = 'rgba(245, 166, 35, 0.5)';
-            else if (type === 'B') cards[index].style.background = 'rgba(155, 89, 182, 0.5)';
+            if (type === 'A') cards[index].style.background = 'rgba(231, 76, 60, 0.6)';
+            else if (type === 'B') cards[index].style.background = 'rgba(52, 152, 219, 0.6)';
             else if (type === 'neutral') cards[index].style.background = 'rgba(255, 255, 255, 0.1)';
-            else if (type === 'assassin') cards[index].style.background = 'rgba(231, 76, 60, 0.7)';
+            else if (type === 'assassin') cards[index].style.background = 'rgba(0, 0, 0, 0.8)';
         }
     });
 
     if (result.currentTeam) {
         const tn = result.teamNames || { A: 'الفريق أ', B: 'الفريق ب' };
-        document.getElementById('codenamesHint').textContent = `دور ${tn[result.currentTeam]}`;
+        const colorNames = { A: '🔴 الأحمر', B: '🔵 الأزرق' };
+        document.getElementById('codenamesHint').innerHTML = `دور <span style="color: ${result.currentTeam === 'A' ? '#E74C3C' : '#3498DB'}">${colorNames[result.currentTeam]}</span> - ${tn[result.currentTeam]}`;
     }
 
     if (result.winner) {
-        setTimeout(() => {
-            alert(`🏆 ${result.teamNames[result.winner]} فاز بكود نيمز! (+500 نقطة)`);
-        }, 500);
+        setTimeout(() => alert(`🏆 ${result.teamNames[result.winner]} فاز بكود نيمز! (+500 نقطة)`), 500);
     }
 });
 
 socket.on('startOvertime', (data) => {
     hideWaiting();
     document.getElementById('overtimeQuestionText').textContent = data.question.س;
-
     const grid = document.getElementById('overtimeOptionsGrid');
     grid.innerHTML = '';
     const letters = ['أ', 'ب', 'ج', 'د'];
@@ -530,7 +457,6 @@ socket.on('startOvertime', (data) => {
         btn.innerHTML = `<span class="option-letter">${letters[i]}</span> ${opt}`;
         grid.appendChild(btn);
     });
-
     updateScoreBoard(data.players, currentRoom?.mode, data.teamNames);
     showScreen('screen-overtime');
     startTimer(data.timer, 'overtimeTimer');
@@ -544,21 +470,15 @@ function submitOvertimeAnswer() {
 }
 
 socket.on('overtimeResult', (result) => {
-    if (result.isCorrect) {
-        alert('✅ إجابة صحيحة! +200 نقطة');
-    } else {
-        alert('❌ إجابة خاطئة!');
-    }
+    if (result.isCorrect) alert('✅ إجابة صحيحة! +200 نقطة');
+    else alert('❌ إجابة خاطئة!');
 });
 
-socket.on('gameFinished', (data) => {
-    showFinalResults(data);
-});
+socket.on('gameFinished', (data) => showFinalResults(data));
 
 function showFinalResults(data) {
     const players = Object.values(data.players).sort((a, b) => b.score - a.score);
     const tn = data.teamNames || { A: 'الفريق أ', B: 'الفريق ب' };
-
     const finalScores = document.getElementById('finalScores');
     finalScores.innerHTML = '';
 
@@ -567,7 +487,7 @@ function showFinalResults(data) {
         const item = document.createElement('div');
         item.className = `final-score-item ${index === 0 ? 'first' : ''}`;
         item.innerHTML = `
-            ${getAvatarSVG(player.avatar)}
+            ${getAvatarHTML(player.avatar)}
             <div class="player-info">
                 <div class="player-name">${player.name}</div>
                 <div class="player-status">${tn[player.team]} - ${player.score.toLocaleString()} نقطة</div>
@@ -580,16 +500,11 @@ function showFinalResults(data) {
 
     document.getElementById('winnerName').textContent = data.winner ? tn[data.winner] : 'تعادل';
     document.getElementById('winnerScore').textContent = `الفائز بـ ${players[0]?.score.toLocaleString() || 0} نقطة!`;
-
     showScreen('screen-results');
 }
 
 function nextQuestion() {
     if (currentRoom) socket.emit('requestNextQuestion', { code: currentRoom.code });
-}
-
-function endDrawRound() {
-    if (currentRoom) socket.emit('endDrawRound', { code: currentRoom.code });
 }
 
 function restartGame() {
@@ -602,7 +517,6 @@ function startTimer(seconds, elementId) {
     timeLeft = seconds;
     updateTimerDisplay(elementId);
     if (timer) clearInterval(timer);
-
     timer = setInterval(() => {
         timeLeft--;
         updateTimerDisplay(elementId);
@@ -653,7 +567,6 @@ function clearCanvas() {
 function setupCanvas() {
     const canvas = document.getElementById('drawingCanvas');
     if (!canvas) return;
-
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
     const ctx = canvas.getContext('2d');

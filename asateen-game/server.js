@@ -150,20 +150,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('codenamesTimerEnd', ({ code }) => {
-        const room = getRoom(code);
-        if (!room) return;
-        const finishData = finishGame(code);
-        if (finishData) {
-            if (finishData.isTied) {
-                const overtimeData = startOvertime(code);
-                if (overtimeData) io.to(code).emit('startOvertime', overtimeData);
-            } else {
-                io.to(code).emit('gameFinished', finishData);
-            }
-        }
-    });
-
     socket.on('submitOvertimeAnswer', ({ code, optionIndex }) => {
         const room = getRoom(code);
         if (!room) return;

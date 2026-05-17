@@ -30,35 +30,8 @@
 
         <div style="max-width: 500px; margin: 0 auto; text-align: center;">
             <div class="card card-gold">
-                <div class="avatar-creator">
-                    <div class="avatar-preview" id="avatarPreview"></div>
-                    <div class="avatar-options">
-                        <div class="avatar-option-group">
-                            <label>الوجه</label>
-                            <div class="avatar-opt-btns" id="faceOptions"></div>
-                        </div>
-                        <div class="avatar-option-group">
-                            <label>العيون</label>
-                            <div class="avatar-opt-btns" id="eyeOptions"></div>
-                        </div>
-                        <div class="avatar-option-group">
-                            <label>النظارات</label>
-                            <div class="avatar-opt-btns" id="glassesOptions"></div>
-                        </div>
-                        <div class="avatar-option-group">
-                            <label>الشعر</label>
-                            <div class="avatar-opt-btns" id="hairOptions"></div>
-                        </div>
-                        <div class="avatar-option-group">
-                            <label>القبعة</label>
-                            <div class="avatar-opt-btns" id="hatOptions"></div>
-                        </div>
-                        <div class="avatar-option-group">
-                            <label>اللون</label>
-                            <div class="avatar-opt-btns" id="colorOptions"></div>
-                        </div>
-                    </div>
-                </div>
+                <h3 style="color: var(--gold); margin-bottom: 15px;"><i class="fas fa-user-circle"></i> اختر صورتك</h3>
+                <div class="avatar-selector" id="avatarSelector"></div>
 
                 <div class="input-group">
                     <label><i class="fas fa-user"></i> اسم اللاعب:</label>
@@ -320,29 +293,24 @@
 
         <div class="game-header">
             <div class="round-info">
-                <div class="round-number">6</div>
+                <div class="round-number" style="background: linear-gradient(135deg, #E74C3C, #3498DB);">6</div>
                 <div>
                     <div class="round-title">كود نيمز</div>
-                    <span class="badge badge-gold"><i class="fas fa-key"></i> الكلمات السرية</span>
+                    <span class="badge badge-gold"><i class="fas fa-key"></i> الفريق الأحمر vs الأزرق</span>
                 </div>
             </div>
-            <div class="timer" id="codenamesTimer">02:00</div>
         </div>
 
         <div class="score-board" id="codenamesScoreBoard"></div>
 
-        <div class="card card-purple" style="text-align: center; margin-bottom: 15px;">
-            <div style="font-size: 0.9rem; color: #B8A9C9; margin-bottom: 5px;">التلميح:</div>
-            <div style="font-size: 1.8rem; font-weight: 900; color: var(--gold);" id="codenamesHint">---</div>
+        <div class="card card-gold" style="text-align: center; margin-bottom: 10px;">
+            <div style="font-size: 1.5rem; font-weight: 900;" id="codenamesHint">---</div>
+        </div>
+
+        <div id="codenamesLeaderHint" style="display: none;" class="card card-purple" style="text-align: center; margin-bottom: 10px;">
         </div>
 
         <div class="codenames-grid" id="codenamesGrid"></div>
-
-        <div class="nav-buttons">
-            <button class="btn btn-outline" id="codenamesSkipBtn" onclick="codenamesSkip()" style="display: none;">
-                <i class="fas fa-forward"></i> تخطي
-            </button>
-        </div>
     </div>
 
     <div class="screen" id="screen-overtime">
