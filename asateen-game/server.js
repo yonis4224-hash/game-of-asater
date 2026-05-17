@@ -26,22 +26,32 @@ io.on('connection', (socket) => {
     console.log('Player connected:', socket.id);
 
     socket.on('createRoom', ({ playerName, avatar }) => {
-        const room = createRoom(socket.id, playerName);
-        if (avatar) room.players[socketId].avatar = avatar;
-        socket.join(room.code);
-        socket.emit('roomCreated', room);
-        console.log(`Room created: ${room.code} by ${playerName}`);
+        try {
+            const room = createRoom(socket.id, playerName);
+            if (avatar) room.players[socket.id].avatar = avatar;
+            socket.join(room.code);
+            socket.emit('roomCreated', room);
+            console.log(`Room created: ${room.code} by ${playerName}`);
+        } catch (err) {
+            console.error('createRoom error:', err);
+            socket.emit('error', { message: 'حدث خطأ أثناء إنشاء الغرفة' });
+        }
     });
 
     socket.on('joinRoom', ({ code, playerName, avatar }) => {
-        const result = joinRoom(code, socket.id, playerName, avatar);
-        if (result.success) {
-            socket.join(code);
-            io.to(code).emit('roomUpdate', result.room);
-            socket.emit('joinedRoom', result.room);
-            console.log(`${playerName} joined room ${code}`);
-        } else {
-            socket.emit('error', { message: result.message });
+        try {
+            const result = joinRoom(code, socket.id, playerName, avatar);
+            if (result.success) {
+                socket.join(code);
+                io.to(code).emit('roomUpdate', result.room);
+                socket.emit('joinedRoom', result.room);
+                console.log(`${playerName} joined room ${code}`);
+            } else {
+                socket.emit('error', { message: result.message });
+            }
+        } catch (err) {
+            console.error('joinRoom error:', err);
+            socket.emit('error', { message: 'حدث خطأ أثناء الانضمام' });
         }
     });
 
@@ -66,11 +76,15 @@ io.on('connection', (socket) => {
     });
 
     socket.on('startGame', ({ code }) => {
-        const room = getRoom(code);
-        if (room && room.host === socket.id) {
-            const gameData = startGame(code);
-            io.to(code).emit('gameStarted', gameData);
-            console.log(`Game started in room ${code}`);
+        try {
+            const room = getRoom(code);
+            if (room && room.host === socket.id) {
+                const gameData = startGame(code);
+                io.to(code).emit('gameStarted', gameData);
+                console.log(`Game started in room ${code}`);
+            }
+        } catch (err) {
+            console.error('startGame error:', err);
         }
     });
 
