@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة الأساطير</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="bg-animation"></div>
+    
+    <div class="floating-icons">
+        <i class="floating-icon fas fa-futbol" style="top: 10%; left: 5%; animation-delay: 0s;"></i>
+        <i class="floating-icon fas fa-trophy" style="top: 20%; right: 10%; animation-delay: 2s;"></i>
+        <i class="floating-icon fas fa-star" style="top: 60%; left: 8%; animation-delay: 4s;"></i>
+        <i class="floating-icon fas fa-crown" style="top: 80%; right: 15%; animation-delay: 6s;"></i>
+        <i class="floating-icon fas fa-medal" style="top: 40%; left: 85%; animation-delay: 8s;"></i>
+        <i class="floating-icon fas fa-gamepad" style="top: 70%; left: 50%; animation-delay: 10s;"></i>
+        <i class="floating-icon fas fa-shield-alt" style="top: 30%; left: 30%; animation-delay: 12s;"></i>
+        <i class="floating-icon fas fa-bolt" style="top: 90%; left: 70%; animation-delay: 14s;"></i>
+    </div>
+
+    <div class="screen active" id="screen-home">
+        <div class="logo-container">
+            <div class="logo">لعبة الأساطير</div>
+            <div class="logo-subtitle">ساحة التحدي</div>
+        </div>
+
+        <div style="max-width: 500px; margin: 0 auto; text-align: center;">
+            <div class="card card-gold">
+                <i class="fas fa-users" style="font-size: 4rem; color: var(--gold); margin-bottom: 20px;"></i>
+                <h2 style="margin-bottom: 15px;">العب مع أصدقائك</h2>
+                <p style="color: #B8A9C9; margin-bottom: 30px; line-height: 1.8;">
+                    تحدّ أصدقاءك في 4 جولات ملحمية من الخداع، المعرفة، والإبداع!
+                </p>
+                <button class="btn btn-primary btn-large btn-block" onclick="showScreen('screen-mode')">
+                    <i class="fas fa-play"></i> ابدأ اللعب
+                </button>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <button class="btn btn-outline btn-block" onclick="showScreen('screen-lobby')">
+                    <i class="fas fa-door-open"></i> انضم لغرفة
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="screen" id="screen-mode">
+        <div class="header-bar">
+            <div class="header-logo">لعبة الأساطير</div>
+            <div class="header-icons">
+                <div class="header-icon" onclick="showScreen('screen-home')"><i class="fas fa-home"></i></div>
+                <div class="header-icon"><i class="fas fa-cog"></i></div>
+            </div>
+        </div>
+
+        <h1 class="section-title">اختر نمط اللعب</h1>
+        <p class="section-subtitle">كيف تريد أن تتحدى أصدقاءك؟</p>
+
+        <div class="mode-grid">
+            <div class="mode-card" onclick="selectMode(this)">
+                <span class="mode-icon">⚔️</span>
+                <div class="mode-title">المواجهة الفردية</div>
+                <div class="mode-desc">1 ضد 1 - تحدٍ مباشر بينك وبين خصمك</div>
+                <div style="margin-top: 15px;">
+                    <span class="badge badge-gold"><i class="fas fa-bolt"></i> الأكثر حماساً</span>
+                </div>
+            </div>
+
+            <div class="mode-card" onclick="selectMode(this)">
+                <span class="mode-icon">🤝</span>
+                <div class="mode-title">اللعب التعاوني</div>
+                <div class="mode-desc">2 ضد 2 - تعاون مع زميلك لهزيمة الفريق الآخر</div>
+                <div style="margin-top: 15px;">
+                    <span class="badge badge-purple"><i class="fas fa-users"></i> عمل جماعي</span>
+                </div>
+            </div>
+
+            <div class="mode-card" onclick="selectMode(this)">
+                <span class="mode-icon">🏟️</span>
+                <div class="mode-title">المواجهة الملحمية</div>
+                <div class="mode-desc">4 ضد 4 - معركتان ضخمتان من الإثارة!</div>
+                <div style="margin-top: 15px;">
+                    <span class="badge badge-gold"><i class="fas fa-crown"></i> للمحترفين</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="nav-buttons">
+            <button class="btn btn-outline" onclick="showScreen('screen-home')">
+                <i class="fas fa-arrow-right"></i> رجوع
+            </button>
+            <button class="btn btn-primary" onclick="showScreen('screen-lobby')">
+                التالي <i class="fas fa-arrow-left"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="screen" id="screen-lobby">
+        <div class="header-bar">
+            <div class="header-logo">لعبة الأساطير</div>
+            <div class="header-icons">
+                <div class="header-icon" onclick="showScreen('screen-mode')"><i class="fas fa-arrow-right"></i></div>
+                <div class="header-icon"><i class="fas fa-share-alt"></i></div>
+            </div>
+        </div>
+
+        <div class="lobby-container">
+            <h1 class="section-title">غرفة اللعب</h1>
+            <p class="section-subtitle">شارك الكود مع أصدقائك للانضمام</p>
+
+            <div class="room-code" id="roomCode">A7X9K2</div>
+
+            <div style="text-align: center; margin: 15px 0;">
+                <button class="btn btn-outline" onclick="copyCode()">
+                    <i class="fas fa-copy"></i> نسخ الكود
+                </button>
+            </div>
+
+            <div class="divider"></div>
+
+            <h3 style="margin-bottom: 20px; color: var(--gold);">
+                <i class="fas fa-users"></i> اللاعبون (<span id="playerCount">1</span>/4)
+            </h3>
+
+            <div class="players-list" id="playersList">
+                <div class="player-item">
+                    <div class="player-avatar">👑</div>
+                    <div class="player-info">
+                        <div class="player-name" id="hostName">أنت</div>
+                        <div class="player-status ready">جاهز للعب</div>
+                    </div>
+                    <span class="player-badge badge-host">المضيف</span>
+                </div>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 25%;"></div>
+            </div>
+
+            <button class="btn btn-primary btn-large btn-block" onclick="startGame()">
+                <i class="fas fa-play-circle"></i> ابدأ المباراة
+            </button>
+        </div>
+    </div>
+
+    <div class="screen" id="screen-game">
+        <div class="header-bar">
+            <div class="header-logo">لعبة الأساطير</div>
+            <div class="header-icons">
+                <div class="header-icon"><i class="fas fa-pause"></i></div>
+                <div class="header-icon"><i class="fas fa-volume-up"></i></div>
+            </div>
+        </div>
+
+        <div class="game-header">
+            <div class="round-info">
+                <div class="round-number" id="roundNumber">1</div>
+                <div>
+                    <div class="round-title" id="roundTitle">خدعة كرة القدم</div>
+                    <span class="badge badge-gold"><i class="fas fa-shield-alt"></i> نظام الفخاخ</span>
+                </div>
+            </div>
+            <div class="timer" id="timer">00:30</div>
+        </div>
+
+        <div class="score-board" id="scoreBoard"></div>
+
+        <div class="question-card">
+            <div class="question-text" id="questionText"></div>
+            <div class="hint-text" id="hintText"></div>
+        </div>
+
+        <div class="trap-notification">
+            <div class="trap-icon">🎭</div>
+            <div class="trap-title">اكتب إجابتك بحذر!</div>
+            <div class="trap-message">
+                إجابتك الخاطئة ستصبح فخاً لخصومك!<br>
+                إذا عرفت الإجابة الصحيحة، استخدمها لخداعهم بإجابة مزيفة ذكية
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label><i class="fas fa-pen"></i> اكتب إجابتك:</label>
+            <input type="text" class="input-field" id="answerInput" placeholder="اكتب هنا...">
+        </div>
+
+        <button class="btn btn-primary btn-block" onclick="submitAnswer()">
+            <i class="fas fa-check-circle"></i> تأكيد الإجابة
+        </button>
+
+        <div class="nav-buttons">
+            <button class="btn btn-outline" onclick="showScreen('screen-lobby')">
+                <i class="fas fa-arrow-right"></i> خروج
+            </button>
+        </div>
+    </div>
+
+    <div class="screen" id="screen-game-options">
+        <div class="header-bar">
+            <div class="header-logo">لعبة الأساطير</div>
+            <div class="header-icons">
+                <div class="header-icon"><i class="fas fa-pause"></i></div>
+            </div>
+        </div>
+
+        <div class="game-header">
+            <div class="round-info">
+                <div class="round-number" id="roundNumber2">1</div>
+                <div><div class="round-title">اختر الإجابة الصحيحة</div></div>
+            </div>
+            <div class="timer warning" id="timer2">00:15</div>
+        </div>
+
+        <div class="question-card">
+            <div class="question-text" id="questionText2"></div>
+        </div>
+
+        <div class="options-grid" id="optionsGrid"></div>
+
+        <div class="nav-buttons">
+            <button class="btn btn-primary btn-block" onclick="confirmOption()">
+                <i class="fas fa-check-circle"></i> تأكيد الاختيار
+            </button>
+        </div>
+    </div>
+
+    <div class="screen" id="screen-draw">
+        <div class="header-bar">
+            <div class="header-logo">لعبة الأساطير</div>
+            <div class="header-icons">
+                <div class="header-icon"><i class="fas fa-pause"></i></div>
+            </div>
+        </div>
+
+        <div class="game-header">
+            <div class="round-info">
+                <div class="round-number">2</div>
+                <div>
+                    <div class="round-title">لوحة الرسام</div>
+                    <span class="badge badge-purple"><i class="fas fa-paint-brush"></i> ارسم لزميلك</span>
+                </div>
+            </div>
+            <div class="timer">00:15</div>
+        </div>
+
+        <div class="score-board">
+            <div class="score-item active">
+                <div class="score-name">الفريق أ</div>
+                <div class="score-value">2100</div>
+            </div>
+            <div class="score-item">
+                <div class="score-name">الفريق ب</div>
+                <div class="score-value">1850</div>
+            </div>
+        </div>
+
+        <div class="card card-gold" style="text-align: center;">
+            <div style="font-size: 1.1rem; color: #B8A9C9; margin-bottom: 10px;">الكلمة السرية:</div>
+            <div style="font-size: 2rem; font-weight: 900; color: var(--gold);">
+                <i class="fas fa-trophy"></i> كرة ذهبية
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas class="drawing-canvas" id="drawingCanvas"></canvas>
+            <div class="canvas-tools">
+                <button class="tool-btn"><i class="fas fa-pencil-alt"></i></button>
+                <button class="tool-btn"><i class="fas fa-eraser"></i></button>
+                <button class="tool-btn"><i class="fas fa-palette"></i></button>
+                <button class="tool-btn"><i class="fas fa-trash"></i></button>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label><i class="fas fa-comment-dots"></i> تخمين زميلك:</label>
+            <input type="text" class="input-field" placeholder="اكتب تخمينك هنا...">
+        </div>
+    </div>
+
+    <div class="screen" id="screen-codenames">
+        <div class="header-bar">
+            <div class="header-logo">لعبة الأساطير</div>
+            <div class="header-icons">
+                <div class="header-icon"><i class="fas fa-pause"></i></div>
+            </div>
+        </div>
+
+        <div class="game-header">
+            <div class="round-info">
+                <div class="round-number">4</div>
+                <div>
+                    <div class="round-title">الكلمات السرية</div>
+                    <span class="badge badge-gold"><i class="fas fa-key"></i> Codenames</span>
+                </div>
+            </div>
+            <div class="timer">00:45</div>
+        </div>
+
+        <div class="card card-purple" style="text-align: center; margin-bottom: 25px;">
+            <div style="font-size: 1rem; color: #B8A9C9; margin-bottom: 8px;">التلميح:</div>
+            <div style="font-size: 2rem; font-weight: 900; color: var(--gold);">
+                كرة <span style="color: var(--purple-light);">2</span>
+            </div>
+        </div>
+
+        <div class="codenames-grid">
+            <div class="codename-card team-a" onclick="selectCodename(this)">ميسي</div>
+            <div class="codename-card neutral" onclick="selectCodename(this)">ملعب</div>
+            <div class="codename-card team-b" onclick="selectCodename(this)">دوري</div>
+            <div class="codename-card team-a" onclick="selectCodename(this)">كأس</div>
+            <div class="codename-card neutral" onclick="selectCodename(this)">حارس</div>
+            <div class="codename-card assassin" onclick="selectCodename(this)">بطاقة</div>
+            <div class="codename-card team-b" onclick="selectCodename(this)">ركلة</div>
+            <div class="codename-card team-a" onclick="selectCodename(this)">هدف</div>
+            <div class="codename-card neutral" onclick="selectCodename(this)">حكم</div>
+            <div class="codename-card team-b" onclick="selectCodename(this)">تمرير</div>
+            <div class="codename-card team-a" onclick="selectCodename(this)">شوت</div>
+            <div class="codename-card neutral" onclick="selectCodename(this)">درع</div>
+            <div class="codename-card team-b" onclick="selectCodename(this)">هجوم</div>
+            <div class="codename-card neutral" onclick="selectCodename(this)">تسلل</div>
+            <div class="codename-card team-a" onclick="selectCodename(this)">مراوغة</div>
+        </div>
+    </div>
+
+    <div class="screen" id="screen-visual">
+        <div class="header-bar">
+            <div class="header-logo">لعبة الأساطير</div>
+            <div class="header-icons">
+                <div class="header-icon"><i class="fas fa-pause"></i></div>
+            </div>
+        </div>
+
+        <div class="game-header">
+            <div class="round-info">
+                <div class="round-number">4</div>
+                <div>
+                    <div class="round-title">مسابقة العيون</div>
+                    <span class="badge badge-purple"><i class="fas fa-eye"></i> جولة بصرية</span>
+                </div>
+            </div>
+            <div class="timer warning">00:10</div>
+        </div>
+
+        <div class="visual-container">
+            <div class="visual-image visual-blur" id="visualImage">
+                <i class="fas fa-futbol"></i>
+            </div>
+            <p style="margin-top: 20px; color: #B8A9C9;">
+                <i class="fas fa-info-circle"></i> الصورة ستظهر تدريجياً... تعرف عليها بسرعة!
+            </p>
+        </div>
+
+        <div class="options-grid">
+            <button class="option-btn" onclick="selectOption(this)">
+                <span class="option-letter">أ</span> خريطة البرازيل
+            </button>
+            <button class="option-btn" onclick="selectOption(this)">
+                <span class="option-letter">ب</span> غلاف فيلم Inception
+            </button>
+            <button class="option-btn" onclick="selectOption(this)">
+                <span class="option-letter">ج</span> ظل كريستيانو رونالدو
+            </button>
+            <button class="option-btn" onclick="selectOption(this)">
+                <span class="option-letter">د</span> شعار ريال مدريد
+            </button>
+        </div>
+
+        <button class="btn btn-primary btn-block" onclick="showScreen('screen-results')">
+            <i class="fas fa-check-circle"></i> تأكيد
+        </button>
+    </div>
+
+    <div class="screen" id="screen-results">
+        <div class="results-container">
+            <div class="winner-crown">🏆</div>
+            <div class="winner-name" id="winnerName">أحمد</div>
+            <div class="winner-score" id="winnerScore">الفائز بالمباراة بـ 3,450 نقطة!</div>
+
+            <div class="divider"></div>
+
+            <h2 class="section-title">النتائج النهائية</h2>
+
+            <div class="final-scores" id="finalScores"></div>
+
+            <div class="divider"></div>
+
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 30px 0;">
+                <button class="btn btn-primary btn-block" onclick="restartGame()">
+                    <i class="fas fa-redo"></i> جولة جديدة
+                </button>
+                <button class="btn btn-secondary btn-block" onclick="showScreen('screen-home')">
+                    <i class="fas fa-home"></i> القائمة الرئيسية
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/database.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
