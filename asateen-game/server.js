@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const { createRoom, joinRoom, getRoom, startGame, submitTrapAnswer, submitOption, disconnectPlayer, buildTeamOptions, calculateQuestionResults, resetForNextQuestion } = require('./js/game-logic');
+const { createRoom, joinRoom, getRoom, startGame, submitTrapAnswer, submitOption, disconnectPlayer, buildOptions, calculateQuestionResults, resetForNextQuestion } = require('./js/game-logic');
 
 const app = express();
 const server = http.createServer(app);
@@ -58,14 +58,9 @@ io.on('connection', (socket) => {
 
         const result = submitTrapAnswer(code, socket.id, questionIndex, answer);
         if (result && result.allSubmitted) {
-            const teamOptions = buildTeamOptions(code, questionIndex);
-            if (teamOptions) {
-                for (const [team, data] of Object.entries(teamOptions)) {
-                    const teamPlayers = Object.values(room.players).filter(p => p.team === team);
-                    for (const player of teamPlayers) {
-                        io.to(player.socketId).emit('showOptions', { options: data.options });
-                    }
-                }
+            const options = buildOptions(code, questionIndex);
+            if (options) {
+                io.to(code).emit('showOptions', { options: options.options });
             }
         }
     });

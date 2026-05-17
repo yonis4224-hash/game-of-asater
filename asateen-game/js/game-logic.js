@@ -22,33 +22,16 @@ function shuffleArray(arr) {
 
 const dataDir = path.join(__dirname, '..', 'data');
 const cultureDB = JSON.parse(fs.readFileSync(path.join(dataDir, 'قاعدة_الأسئلة.json'), 'utf8'));
-const whoIsDB = JSON.parse(fs.readFileSync(path.join(dataDir, 'من_هذا.json'), 'utf8'));
-const worldCupDB = JSON.parse(fs.readFileSync(path.join(dataDir, 'كأس_العالم.json'), 'utf8'));
-const premierDB = JSON.parse(fs.readFileSync(path.join(dataDir, 'premier_league_questions.json'), 'utf8'));
-const championsDB = JSON.parse(fs.readFileSync(path.join(dataDir, 'champions_league_questions.json'), 'utf8'));
 
-const allCultureQuestions = [];
-for (const key of Object.keys(cultureDB)) {
-    if (key !== 'جميع_الأسئلة') {
-        allCultureQuestions.push(...cultureDB[key]);
-    }
-}
+const categoryQuestions = {
+    1: cultureDB.ثقافة_عامة || [],
+    2: cultureDB.سينما_وأنمي || [],
+    3: cultureDB.تاريخ_وجغرافيا || [],
+    4: cultureDB.مصارعة || []
+};
 
-function convertWhoIs(data) {
-    const allAnswers = data.map(q => q.ج);
-    return data.map(q => {
-        const wrongAnswers = allAnswers.filter(a => a !== q.ج);
-        const shuffledWrong = shuffleArray(wrongAnswers).slice(0, 3);
-        const options = [q.ج, ...shuffledWrong];
-        const shuffledOptions = shuffleArray(options);
-        const correctIndex = shuffledOptions.indexOf(q.ج);
-        return { س: q.س, خيارات: shuffledOptions, الجواب: correctIndex };
-    });
-}
-
-const formattedWhoIs = convertWhoIs(whoIsDB);
-
-const allSportsQuestions = [...worldCupDB, ...premierDB, ...championsDB];
+const totalRounds = 4;
+const questionsPerRound = 5;
 
 function createRoom(hostSocketId, hostName) {
     const code = generateCode();
@@ -108,7 +91,7 @@ function joinRoom(code, socketId, playerName) {
     const totalPlayers = Object.keys(room.players).length;
     if (totalPlayers === 2) room.mode = '1v1';
     else if (totalPlayers === 4) room.mode = '2v2';
-    else if (totalPlayers >= 6) room.mode = '4v4';
+    else room.mode = '4v4';
 
     return { success: true, room };
 }
@@ -125,18 +108,15 @@ function startGame(code) {
     room.game = {
         currentRound: 1,
         currentQuestionIndex: 0,
-        questionsPerRound: 5,
-        totalRounds: 3,
+        totalRounds,
+        questionsPerRound,
         timer: 30,
-        timerInterval: null,
-        roundType: 'trap',
-        teamOptions: null,
-        questions: {
-            1: shuffleArray(allCultureQuestions).slice(0, 5),
-            2: shuffleArray(formattedWhoIs).slice(0, 5),
-            3: shuffleArray(allSportsQuestions).slice(0, 5)
-        }
+        questions: {}
     };
+
+    for (let r = 1; r <= totalRounds; r++) {
+        room.game.questions[r] = shuffleArray(categoryQuestions[r]).slice(0, questionsPerRound);
+    }
 
     Object.keys(room.players).forEach(id => {
         room.players[id].score = 0;
@@ -155,7 +135,6 @@ function startGame(code) {
         round: 1,
         questionIndex: 0,
         question: room.game.questions[1][0],
-        roundType: 'trap',
         timer: 30,
         players: room.players,
         mode: room.mode
@@ -186,62 +165,23 @@ function submitOption(code, socketId, questionIndex, optionIndex) {
     return { submittedCount, totalCount, allSubmitted: submittedCount === totalCount };
 }
 
-function buildTeamOptions(code, questionIndex) {
+function buildOptions(code, questionIndex) {
     const room = rooms[code];
     if (!room || !room.game) return null;
 
     const question = room.game.questions[room.game.currentRound]?.[questionIndex];
     if (!question) return null;
 
-    const teams = [...new Set(Object.values(room.players).map(p => p.team))];
-    const teamOptions = {};
-    const correctAnswer = question.خيارات[question.الجواب];
-
-    for (const team of teams) {
-        const opponentAnswers = [];
-        const seenAnswers = new Set([correctAnswer]);
-
-        for (const player of Object.values(room.players)) {
-            if (player.team !== team && player.trapAnswer !== null) {
-                if (!seenAnswers.has(player.trapAnswer)) {
-                    opponentAnswers.push({ text: player.trapAnswer, fromPlayer: player.name });
-                    seenAnswers.add(player.trapAnswer);
-                }
-            }
-        }
-
-        const defaultWrong = question.خيارات
-            .map((opt, idx) => ({ text: opt, idx }))
-            .filter(a => a.idx !== question.الجواب && !seenAnswers.has(a.text));
-
-        const options = [{ text: correctAnswer, isCorrect: true }];
-
-        for (const ans of opponentAnswers) {
-            if (options.length >= 4) break;
-            options.push({ text: ans.text, isCorrect: false, fromPlayer: ans.fromPlayer });
-        }
-
-        for (const ans of defaultWrong) {
-            if (options.length >= 4) break;
-            options.push({ text: ans.text, isCorrect: false, isDefault: true });
-        }
-
-        for (let i = options.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [options[i], options[j]] = [options[j], options[i]];
-        }
-
-        const correctIndex = options.findIndex(o => o.isCorrect);
-        teamOptions[team] = { options, correctIndex };
-    }
-
-    room.game.teamOptions = teamOptions;
-    return teamOptions;
+    const options = question.خيارات.map(text => ({ text }));
+    return { options, correctIndex: question.الجواب };
 }
 
 function calculateQuestionResults(code, questionIndex) {
     const room = rooms[code];
-    if (!room || !room.game || !room.game.teamOptions) return null;
+    if (!room || !room.game) return null;
+
+    const question = room.game.questions[room.game.currentRound]?.[questionIndex];
+    if (!question) return null;
 
     const correctPlayers = [];
     const wrongPlayers = [];
@@ -250,29 +190,25 @@ function calculateQuestionResults(code, questionIndex) {
     for (const player of Object.values(room.players)) {
         if (player.selectedOption === null) continue;
 
-        const teamOpts = room.game.teamOptions[player.team];
-        if (!teamOpts) continue;
-
-        const isCorrect = player.selectedOption === teamOpts.correctIndex;
+        const isCorrect = player.selectedOption === question.الجواب;
 
         if (isCorrect) {
             player.score += 100;
             correctPlayers.push({ name: player.name, team: player.team, score: player.score });
         } else {
-            const selectedOpt = teamOpts.options[player.selectedOption];
-            const fromPlayer = selectedOpt?.fromPlayer || null;
+            const selectedAnswer = question.خيارات[player.selectedOption];
 
-            if (fromPlayer) {
-                trapInfo[fromPlayer] = (trapInfo[fromPlayer] || 0) + 1;
-                const trapper = Object.values(room.players).find(p => p.name === fromPlayer);
-                if (trapper) trapper.score += 50;
+            for (const other of Object.values(room.players)) {
+                if (other.socketId !== player.socketId && other.trapAnswer === selectedAnswer) {
+                    trapInfo[other.name] = (trapInfo[other.name] || 0) + 1;
+                    other.score += 50;
+                }
             }
 
             wrongPlayers.push({
                 name: player.name,
                 team: player.team,
-                selectedAnswer: selectedOpt?.text || '',
-                fromPlayer
+                selectedAnswer
             });
         }
 
@@ -295,8 +231,6 @@ function resetForNextQuestion(code) {
         player.trapAnswer = null;
         player.selectedOption = null;
     }
-
-    room.game.teamOptions = null;
 
     room.game.currentQuestionIndex++;
     const questions = room.game.questions[room.game.currentRound];
@@ -348,7 +282,7 @@ module.exports = {
     submitTrapAnswer,
     submitOption,
     disconnectPlayer,
-    buildTeamOptions,
+    buildOptions,
     calculateQuestionResults,
     resetForNextQuestion,
     rooms

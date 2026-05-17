@@ -7,7 +7,6 @@ let timer = null;
 let timeLeft = 30;
 let playerName = localStorage.getItem('playerName') || '';
 let isHost = false;
-let currentOptions = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     if (playerName) {
@@ -182,8 +181,9 @@ function loadQuestion(gameData) {
 
     const roundNames = {
         1: 'الجولة الأولى - ثقافة عامة',
-        2: 'الجولة الثانية - من هذا؟',
-        3: 'الجولة الثالثة - رياضة'
+        2: 'الجولة الثانية - سينما وأنمي',
+        3: 'الجولة الثالثة - تاريخ وجغرافيا',
+        4: 'الجولة الرابعة - مصارعة'
     };
     document.getElementById('roundTitle').textContent = roundNames[gameData.round] || `الجولة ${gameData.round}`;
 
@@ -241,7 +241,6 @@ function submitTrapAnswer() {
 
 socket.on('showOptions', (data) => {
     hideWaiting();
-    currentOptions = data.options;
     renderOptions(data.options);
     showScreen('screen-game-options');
     startTimer(15, 'timer2');
@@ -260,9 +259,6 @@ function renderOptions(options) {
     options.forEach((option, index) => {
         const btn = document.createElement('button');
         btn.className = 'option-btn';
-        if (option.fromPlayer) {
-            btn.setAttribute('data-from', option.fromPlayer);
-        }
         btn.onclick = function() { selectOption(this); };
         btn.innerHTML = `<span class="option-letter">${letters[index]}</span> ${option.text}`;
         grid.appendChild(btn);
@@ -310,8 +306,8 @@ function showQuestionResults(data) {
     if (data.wrongPlayers.length > 0) {
         let html = `<div class="results-section"><h3><span class="results-icon wrong">❌</span> إجابات خاطئة</h3><div class="results-list">`;
         for (const p of data.wrongPlayers) {
-            const trapInfo = p.fromPlayer ? `من إجابة: <span class="trap-name">${p.fromPlayer}</span> 🎭` : '(إجابة افتراضية)';
-            html += `<div class="result-player wrong"><span class="result-name">${p.name}</span><span class="result-team">${teamNames[p.team]}</span><span class="result-answer">اختار: "${p.selectedAnswer}"</span><span class="result-trap">${trapInfo}</span></div>`;
+            const trapInfo = p.fromPlayer ? `من إجابة: <span class="trap-name">${p.fromPlayer}</span> 🎭` : '';
+            html += `<div class="result-player wrong"><span class="result-name">${p.name}</span><span class="result-team">${teamNames[p.team]}</span><span class="result-answer">اختار: "${p.selectedAnswer}"</span>${trapInfo ? `<span class="result-trap">${trapInfo}</span>` : ''}</div>`;
         }
         html += `</div></div>`;
         container.innerHTML += html;
