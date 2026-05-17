@@ -2,6 +2,7 @@ services:
   - type: web
     name: game-of-asater
     env: node
+    rootDir: asateen-game
     buildCommand: npm install
     startCommand: node server.js
     envVars:
