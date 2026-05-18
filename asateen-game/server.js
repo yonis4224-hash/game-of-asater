@@ -126,13 +126,13 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 io.on('connection', (socket) => {
     console.log('Player connected:', socket.id);
 
-    socket.on('createRoom', ({ playerName, avatar }) => {
+    socket.on('createRoom', ({ playerName, avatar, mode }) => {
         try {
-            const room = createRoom(socket.id, playerName);
+            const room = createRoom(socket.id, playerName, mode);
             if (avatar) room.players[socket.id].avatar = avatar;
             socket.join(room.code);
             socket.emit('roomCreated', room);
-            console.log(`Room created: ${room.code} by ${playerName}`);
+            console.log(`Room created: ${room.code} by ${playerName} (mode: ${room.mode})`);
         } catch (err) {
             console.error('createRoom error:', err);
             socket.emit('error', { message: 'حدث خطأ أثناء إنشاء الغرفة' });

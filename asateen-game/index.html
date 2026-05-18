@@ -37,10 +37,27 @@
                     <label><i class="fas fa-user"></i> اسم اللاعب:</label>
                     <input type="text" class="input-field" id="playerNameInput" placeholder="أدخل اسمك...">
                 </div>
-                <button class="btn btn-primary btn-large btn-block" onclick="createRoom()">
-                    <i class="fas fa-play"></i> إنشاء غرفة
-                </button>
             </div>
+
+            <div class="card card-gold">
+                <h3 style="color: var(--gold); margin-bottom: 15px;"><i class="fas fa-gamepad"></i> اختر نمط اللعب</h3>
+                <div class="mode-selection-inline">
+                    <div class="mode-option selected" id="modeSolo" onclick="selectGameMode('solo')">
+                        <span class="mode-option-icon">⚔️</span>
+                        <div class="mode-option-title">فردي</div>
+                        <div class="mode-option-desc">حتى 8 لاعبين - 15 سؤال</div>
+                    </div>
+                    <div class="mode-option" id="modeTeam" onclick="selectGameMode('team')">
+                        <span class="mode-option-icon">🏟️</span>
+                        <div class="mode-option-title">جماعي</div>
+                        <div class="mode-option-desc">فرق - 4 جولات</div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-large btn-block" onclick="createRoom()">
+                <i class="fas fa-play"></i> إنشاء غرفة
+            </button>
 
             <div style="margin-top: 15px;">
                 <div class="input-group">
@@ -50,37 +67,6 @@
                     <i class="fas fa-door-open"></i> انضم للغرفة
                 </button>
             </div>
-        </div>
-    </div>
-
-    <div class="screen" id="screen-mode">
-        <div class="header-bar">
-            <div class="header-logo">لعبة الأساطير</div>
-            <div class="header-icons">
-                <div class="header-icon" onclick="showScreen('screen-home')"><i class="fas fa-home"></i></div>
-                <div class="header-icon"><i class="fas fa-cog"></i></div>
-            </div>
-        </div>
-
-        <h1 class="section-title">اختر نمط اللعب</h1>
-        <p class="section-subtitle">كيف تريد أن تتحدى أصدقاءك؟</p>
-
-        <div class="mode-grid">
-            <div class="mode-card" onclick="selectMode(this, 'solo')">
-                <span class="mode-icon">⚔️</span>
-                <div class="mode-title">الوضع الفردي</div>
-                <div class="mode-desc">حتى 8 لاعبين - 15 سؤال عشوائي</div>
-            </div>
-            <div class="mode-card" onclick="selectMode(this, 'team')">
-                <span class="mode-icon">🏟️</span>
-                <div class="mode-title">الوضع الجماعي</div>
-                <div class="mode-desc">من 2 ضد 2 إلى 6 ضد 6 - 4 جولات</div>
-            </div>
-        </div>
-
-        <div class="nav-buttons">
-            <button class="btn btn-outline" onclick="showScreen('screen-home')"><i class="fas fa-arrow-right"></i> رجوع</button>
-            <button class="btn btn-primary" onclick="showScreen('screen-lobby')">التالي <i class="fas fa-arrow-left"></i></button>
         </div>
     </div>
 
@@ -94,6 +80,11 @@
         </div>
 
         <div class="lobby-container">
+            <div class="mode-badge" id="lobbyModeBadge">
+                <i class="fas fa-gamepad"></i>
+                <span id="lobbyModeText">الوضع الفردي</span>
+            </div>
+
             <h1 class="section-title">غرفة اللعب</h1>
             <p class="section-subtitle">شارك الكود مع أصدقائك للانضمام</p>
 
@@ -105,22 +96,36 @@
 
             <div class="divider"></div>
 
-            <div class="team-selector">
-                <label>🅰️ الفريق أ:</label>
-                <input type="text" id="teamAName" placeholder="اسم الفريق أ" value="الفريق أ">
+            <div id="teamNamesSection">
+                <div class="team-selector">
+                    <label>🅰️ الفريق أ:</label>
+                    <input type="text" id="teamAName" placeholder="اسم الفريق أ" value="الفريق أ">
+                </div>
+                <div class="team-selector">
+                    <label>🅱️ الفريق ب:</label>
+                    <input type="text" id="teamBName" placeholder="اسم الفريق ب" value="الفريق ب">
+                </div>
+                <div class="divider"></div>
             </div>
-            <div class="team-selector">
-                <label>🅱️ الفريق ب:</label>
-                <input type="text" id="teamBName" placeholder="اسم الفريق ب" value="الفريق ب">
-            </div>
-
-            <div class="divider"></div>
 
             <h3 style="margin-bottom: 15px; color: var(--gold); font-size: 1.1rem;">
-                <i class="fas fa-users"></i> اللاعبون (<span id="playerCount">1</span>/12)
+                <i class="fas fa-users"></i> اللاعبون (<span id="playerCount">1</span>/<span id="maxPlayers">8</span>)
             </h3>
 
-            <div class="players-list" id="playersList"></div>
+            <div id="teamSections">
+                <div id="teamASection" class="team-section">
+                    <h4 class="team-section-title" id="teamATitle">🅰️ الفريق أ</h4>
+                    <div class="players-list" id="playersListA"></div>
+                </div>
+                <div id="teamBSection" class="team-section">
+                    <h4 class="team-section-title" id="teamBTitle">🅱️ الفريق ب</h4>
+                    <div class="players-list" id="playersListB"></div>
+                </div>
+            </div>
+
+            <div id="soloSection" style="display: none;">
+                <div class="players-list" id="playersListSolo"></div>
+            </div>
 
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill" style="width: 8%;"></div>

@@ -45,12 +45,12 @@ const codenamesWords = [
     'ريال', 'برشلونة', 'ليفربول', 'مانشستر', 'ميلان', 'بايرن', 'باريس', 'يوفنتوس', 'تشيلسي', 'أرسنال'
 ];
 
-function createRoom(hostSocketId, hostName) {
+function createRoom(hostSocketId, hostName, mode) {
     const code = generateCode();
     rooms[code] = {
         code,
         host: hostSocketId,
-        mode: 'team',
+        mode: mode || 'team',
         teamNames: { A: 'الفريق أ', B: 'الفريق ب' },
         scores: {},
         players: {

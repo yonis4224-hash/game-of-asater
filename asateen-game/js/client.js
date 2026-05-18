@@ -8,6 +8,7 @@ let timeLeft = 30;
 let playerName = localStorage.getItem('playerName') || '';
 let isHost = false;
 let selectedAvatar = parseInt(localStorage.getItem('selectedAvatar')) || 0;
+let selectedGameMode = 'solo';
 
 const avatarFiles = [
     'انمي.jpeg',
@@ -38,6 +39,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (playerName) document.getElementById('playerNameInput').value = playerName;
     initAvatarSelector();
     setupCanvas();
+    const savedMode = localStorage.getItem('selectedGameMode');
+    if (savedMode) {
+        selectedGameMode = savedMode;
+        updateModeSelectionUI();
+    }
 });
 
 function initAvatarSelector() {
@@ -117,11 +123,17 @@ function hideRoundTransition() {
     if (overlay) overlay.style.display = 'none';
 }
 
-function selectMode(card, mode) {
-    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
-    card.classList.add('selected');
-    currentRoom = currentRoom || {};
-    currentRoom.mode = mode;
+function selectGameMode(mode) {
+    selectedGameMode = mode;
+    localStorage.setItem('selectedGameMode', mode);
+    updateModeSelectionUI();
+}
+
+function updateModeSelectionUI() {
+    const soloEl = document.getElementById('modeSolo');
+    const teamEl = document.getElementById('modeTeam');
+    if (soloEl) soloEl.classList.toggle('selected', selectedGameMode === 'solo');
+    if (teamEl) teamEl.classList.toggle('selected', selectedGameMode === 'team');
 }
 
 function selectOption(btn) {
@@ -142,7 +154,7 @@ function createRoom() {
     playerName = name;
     localStorage.setItem('playerName', name);
     isHost = true;
-    socket.emit('createRoom', { playerName: name, avatar: selectedAvatar });
+    socket.emit('createRoom', { playerName: name, avatar: selectedAvatar, mode: selectedGameMode });
 }
 
 function joinRoom() {
@@ -180,40 +192,98 @@ function updateLobby(room) {
     document.getElementById('roomCode').textContent = room.code;
     const totalPlayers = Object.keys(room.players).length;
     const isSolo = room.mode === 'solo';
-    document.getElementById('playerCount').textContent = isSolo ? `${totalPlayers}/8` : `${totalPlayers}/12`;
+    const maxPlayers = isSolo ? 8 : 12;
 
-    const playersList = document.getElementById('playersList');
-    playersList.innerHTML = '';
+    document.getElementById('playerCount').textContent = totalPlayers;
+    document.getElementById('maxPlayers').textContent = maxPlayers;
+
+    const modeBadge = document.getElementById('lobbyModeBadge');
+    const modeText = document.getElementById('lobbyModeText');
+    if (isSolo) {
+        modeText.textContent = 'الوضع الفردي - حتى 8 لاعبين';
+    } else {
+        modeText.textContent = 'الوضع الجماعي - فرق';
+    }
+
+    const teamNamesSection = document.getElementById('teamNamesSection');
+    const teamSections = document.getElementById('teamSections');
+    const soloSection = document.getElementById('soloSection');
+
+    if (isSolo) {
+        teamNamesSection.style.display = 'none';
+        teamSections.style.display = 'none';
+        soloSection.style.display = 'block';
+    } else {
+        teamNamesSection.style.display = 'block';
+        teamSections.style.display = 'block';
+        soloSection.style.display = 'none';
+    }
 
     const teamNames = room.teamNames || { A: 'الفريق أ', B: 'الفريق ب' };
     const teamColors = { A: '#E74C3C', B: '#3498DB' };
-    const teamBgColors = { A: 'rgba(231, 76, 60, 0.15)', B: 'rgba(52, 152, 219, 0.15)' };
+    const teamBgColors = { A: 'rgba(231, 76, 60, 0.1)', B: 'rgba(52, 152, 219, 0.1)' };
 
-    Object.values(room.players).forEach((player) => {
-        const item = document.createElement('div');
-        item.className = 'player-item';
-        item.style.borderLeft = `4px solid ${teamColors[player.team]}`;
-        item.style.background = teamBgColors[player.team];
+    document.getElementById('teamATitle').textContent = `🅰️ ${teamNames.A}`;
+    document.getElementById('teamBTitle').textContent = `🅱️ ${teamNames.B}`;
 
-        const isMe = player.socketId === socket.id;
+    if (isSolo) {
+        const soloList = document.getElementById('playersListSolo');
+        soloList.innerHTML = '';
 
-        item.innerHTML = `
-            ${getAvatarHTML(player.avatar)}
-            <div class="player-info">
-                <div class="player-name">${player.name} ${isMe ? '(أنت)' : ''}</div>
-                <div class="player-status ready">${teamNames[player.team]} ${player.isLeader ? '👑' : ''}</div>
-            </div>
-            ${isMe && !isSolo ? `
-                <button class="team-switch-btn" onclick="switchTeam('${player.team === 'A' ? 'B' : 'A'}')">
-                    انتقال للفريق ${player.team === 'A' ? 'ب' : 'أ'}
-                </button>
-            ` : ''}
-            ${isHost && !isMe ? `<button class="kick-btn" onclick="kickPlayer('${player.socketId}')"><i class="fas fa-times"></i></button>` : ''}
-        `;
-        playersList.appendChild(item);
-    });
+        Object.values(room.players).forEach((player) => {
+            const item = document.createElement('div');
+            item.className = 'player-item';
+            item.style.borderLeft = `4px solid var(--gold)`;
+            item.style.background = 'var(--glass)';
 
-    const maxPlayers = isSolo ? 8 : 12;
+            const isMe = player.socketId === socket.id;
+
+            item.innerHTML = `
+                ${getAvatarHTML(player.avatar)}
+                <div class="player-info">
+                    <div class="player-name">${player.name} ${isMe ? '(أنت)' : ''}</div>
+                    <div class="player-status ready">جاهز</div>
+                </div>
+                ${isHost && !isMe ? `<button class="kick-btn" onclick="kickPlayer('${player.socketId}')"><i class="fas fa-times"></i></button>` : ''}
+            `;
+            soloList.appendChild(item);
+        });
+    } else {
+        const listA = document.getElementById('playersListA');
+        const listB = document.getElementById('playersListB');
+        listA.innerHTML = '';
+        listB.innerHTML = '';
+
+        Object.values(room.players).forEach((player) => {
+            const item = document.createElement('div');
+            item.className = 'player-item';
+            item.style.borderLeft = `4px solid ${teamColors[player.team]}`;
+            item.style.background = teamBgColors[player.team];
+
+            const isMe = player.socketId === socket.id;
+
+            item.innerHTML = `
+                ${getAvatarHTML(player.avatar)}
+                <div class="player-info">
+                    <div class="player-name">${player.name} ${isMe ? '(أنت)' : ''}</div>
+                    <div class="player-status ready">${teamNames[player.team]} ${player.isLeader ? '👑' : ''}</div>
+                </div>
+                ${isMe ? `
+                    <button class="team-switch-btn" onclick="switchTeam('${player.team === 'A' ? 'B' : 'A'}')">
+                        انتقال
+                    </button>
+                ` : ''}
+                ${isHost && !isMe ? `<button class="kick-btn" onclick="kickPlayer('${player.socketId}')"><i class="fas fa-times"></i></button>` : ''}
+            `;
+
+            if (player.team === 'A') {
+                listA.appendChild(item);
+            } else {
+                listB.appendChild(item);
+            }
+        });
+    }
+
     const progress = Math.min((totalPlayers / maxPlayers) * 100, 100);
     document.getElementById('progressFill').style.width = progress + '%';
 
