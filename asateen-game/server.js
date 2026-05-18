@@ -7,7 +7,7 @@ const {
     getRoom, startGame, submitTrapAnswer, submitOption, disconnectPlayer,
     buildOptions, calculateQuestionResults, resetForNextQuestion,
     startDrawRound, submitDrawGuess, startCodenamesRound, revealCodenameWord,
-    startOvertime, submitOvertimeAnswer, finishGame, rooms,
+    finishGame, rooms,
     autoConfirmTrapPlayers, autoConfirmOptionPlayers
 } = require('./js/game-logic');
 
@@ -19,13 +19,104 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
-const activeTimers = {};
+const roomTimers = {};
 
-function clearRoomTimers(code) {
-    if (activeTimers[code]) {
-        activeTimers[code].forEach(t => clearTimeout(t));
-        delete activeTimers[code];
+function clearTimers(code) {
+    if (roomTimers[code]) {
+        roomTimers[code].forEach(t => clearTimeout(t));
+        roomTimers[code] = [];
     }
+}
+
+function addTimer(code, fn, ms) {
+    if (!roomTimers[code]) roomTimers[code] = [];
+    const t = setTimeout(fn, ms);
+    roomTimers[code].push(t);
+    return t;
+}
+
+function startQuestionFlow(code, questionIndex) {
+    const room = getRoom(code);
+    if (!room || room.status !== 'playing') return;
+
+    addTimer(code, () => {
+        autoConfirmTrapPlayers(code);
+        const teamOptionsData = buildOptions(code, questionIndex);
+        if (teamOptionsData) {
+            const { teamOptions, confirmedPlayers } = teamOptionsData;
+            for (const [team, data] of Object.entries(teamOptions)) {
+                const teamPlayers = Object.values(room.players).filter(p => p.team === team);
+                for (const player of teamPlayers) {
+                    io.to(player.socketId).emit('showOptions', { options: data.options, confirmedPlayers });
+                }
+            }
+
+            addTimer(code, () => {
+                autoConfirmOptionPlayers(code);
+                const results = calculateQuestionResults(code, questionIndex);
+                if (results) io.to(code).emit('questionResults', results);
+            }, 10000);
+        }
+    }, 10000);
+}
+
+function handleNextPhase(code) {
+    const room = getRoom(code);
+    if (!room || room.status !== 'playing') return;
+    clearTimers(code);
+
+    const nextData = resetForNextQuestion(code);
+    if (!nextData) return;
+
+    if (nextData.isFinished) {
+        io.to(code).emit('gameFinished', nextData.finishData);
+        return;
+    }
+
+    if (nextData.nextPhase === 'draw') {
+        io.to(code).emit('showRoundTransition', {
+            round: 2,
+            roundTitle: 'الجولة الثانية - الرسم',
+            roundDisplayName: 'الرسم'
+        });
+
+        addTimer(code, () => {
+            const drawData = startDrawRound(code);
+            if (drawData) io.to(code).emit('startDrawRound', drawData);
+        }, 5000);
+        return;
+    }
+
+    if (nextData.nextPhase === 'codenames') {
+        io.to(code).emit('showRoundTransition', {
+            round: 4,
+            roundTitle: 'الجولة الرابعة - كود نيمز',
+            roundDisplayName: 'كود نيمز'
+        });
+
+        addTimer(code, () => {
+            const codenamesData = startCodenamesRound(code);
+            if (codenamesData) io.to(code).emit('startCodenamesRound', codenamesData);
+        }, 5000);
+        return;
+    }
+
+    if (nextData.showRoundTransition) {
+        io.to(code).emit('showRoundTransition', {
+            round: nextData.round,
+            roundTitle: nextData.roundTitle,
+            roundDisplayName: nextData.roundDisplayName
+        });
+
+        addTimer(code, () => {
+            io.to(code).emit('nextQuestion', nextData);
+            startQuestionFlow(code, nextData.questionIndex);
+        }, 5000);
+        return;
+    }
+
+    io.to(code).emit('nextQuestion', nextData);
+    startQuestionFlow(code, nextData.questionIndex);
 }
 
 app.use(express.static(path.join(__dirname)));
@@ -94,34 +185,12 @@ io.on('connection', (socket) => {
         try {
             const room = getRoom(code);
             if (room && room.host === socket.id) {
-                clearRoomTimers(code);
+                clearTimers(code);
                 const gameData = startGame(code);
                 gameData.mode = room.mode;
                 io.to(code).emit('gameStarted', gameData);
                 console.log(`Game started in room ${code}`);
-
-                const timer = setTimeout(() => {
-                    autoConfirmTrapPlayers(code, gameData.questionIndex);
-                    const teamOptionsData = buildOptions(code, gameData.questionIndex);
-                    if (teamOptionsData) {
-                        const { teamOptions, confirmedPlayers } = teamOptionsData;
-                        for (const [team, data] of Object.entries(teamOptions)) {
-                            const teamPlayers = Object.values(room.players).filter(p => p.team === team);
-                            for (const player of teamPlayers) {
-                                io.to(player.socketId).emit('showOptions', { options: data.options, confirmedPlayers });
-                            }
-                        }
-                        const optTimer = setTimeout(() => {
-                            autoConfirmOptionPlayers(code);
-                            const results = calculateQuestionResults(code, gameData.questionIndex);
-                            if (results) io.to(code).emit('questionResults', results);
-                        }, 10000);
-                        if (!activeTimers[code]) activeTimers[code] = [];
-                        activeTimers[code].push(optTimer);
-                    }
-                }, 10000);
-                if (!activeTimers[code]) activeTimers[code] = [];
-                activeTimers[code].push(timer);
+                startQuestionFlow(code, gameData.questionIndex);
             }
         } catch (err) {
             console.error('startGame error:', err);
@@ -143,13 +212,11 @@ io.on('connection', (socket) => {
                     }
                 }
 
-                const timer = setTimeout(() => {
+                addTimer(code, () => {
                     autoConfirmOptionPlayers(code);
                     const results = calculateQuestionResults(code, questionIndex);
                     if (results) io.to(code).emit('questionResults', results);
                 }, 10000);
-                if (!activeTimers[code]) activeTimers[code] = [];
-                activeTimers[code].push(timer);
             }
         }
     });
@@ -168,157 +235,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('requestNextQuestion', ({ code }) => {
-        const room = getRoom(code);
-        if (!room || room.status !== 'playing') return;
-        clearRoomTimers(code);
-        const nextData = resetForNextQuestion(code);
-
-        if (nextData.isFinished) {
-            io.to(code).emit('gameFinished', nextData.finishData);
-            return;
-        }
-
-        if (nextData.nextPhase === 'draw') {
-            io.to(code).emit('showRoundTransition', {
-                round: 2,
-                roundTitle: 'الجولة الثانية - الرسم',
-                roundDisplayName: 'الرسم'
-            });
-
-            const timer = setTimeout(() => {
-                const drawData = startDrawRound(code);
-                if (drawData) {
-                    io.to(code).emit('startDrawRound', drawData);
-
-                    const drawEndTimer = setTimeout(() => {
-                        io.to(code).emit('showRoundTransition', {
-                            round: 3,
-                            roundTitle: `الجولة الثالثة - ${require('./js/game-logic').rooms[code]?.game?.randomCategory ? { culture: 'كرة قدم', cinema: 'سينما', wrestling: 'مصارعة' }[require('./js/game-logic').rooms[code].game.randomCategory] : 'عشوائي'}`,
-                            roundDisplayName: require('./js/game-logic').rooms[code]?.game?.randomCategory ? { culture: 'كرة قدم', cinema: 'سينما', wrestling: 'مصارعة' }[require('./js/game-logic').rooms[code].game.randomCategory] : 'عشوائي'
-                        });
-
-                        const timer2 = setTimeout(() => {
-                            const qData = {
-                                round: 3,
-                                questionIndex: 0,
-                                question: room.game.questions[3][0],
-                                timer: 10,
-                                players: room.players,
-                                mode: room.mode,
-                                teamNames: room.teamNames,
-                                isSolo: false,
-                                totalQuestions: 5,
-                                phase: 'trivia',
-                                roundTitle: `الجولة الثالثة - ${require('./js/game-logic').rooms[code]?.game?.randomCategory ? { culture: 'كرة قدم', cinema: 'سينما', wrestling: 'مصارعة' }[require('./js/game-logic').rooms[code].game.randomCategory] : 'عشوائي'}`
-                            };
-                            io.to(code).emit('nextQuestion', qData);
-
-                            const trapTimer = setTimeout(() => {
-                                autoConfirmTrapPlayers(code, 0);
-                                const teamOptionsData = buildOptions(code, 0);
-                                if (teamOptionsData) {
-                                    const { teamOptions, confirmedPlayers } = teamOptionsData;
-                                    for (const [team, data] of Object.entries(teamOptions)) {
-                                        const teamPlayers = Object.values(room.players).filter(p => p.team === team);
-                                        for (const player of teamPlayers) {
-                                            io.to(player.socketId).emit('showOptions', { options: data.options, confirmedPlayers });
-                                        }
-                                    }
-                                    const optTimer = setTimeout(() => {
-                                        autoConfirmOptionPlayers(code);
-                                        const results = calculateQuestionResults(code, 0);
-                                        if (results) io.to(code).emit('questionResults', results);
-                                    }, 10000);
-                                    if (!activeTimers[code]) activeTimers[code] = [];
-                                    activeTimers[code].push(optTimer);
-                                }
-                            }, 10000);
-                            if (!activeTimers[code]) activeTimers[code] = [];
-                            activeTimers[code].push(trapTimer);
-                        }, 5000);
-                        if (!activeTimers[code]) activeTimers[code] = [];
-                        activeTimers[code].push(timer2);
-                    }, 30000);
-                    if (!activeTimers[code]) activeTimers[code] = [];
-                    activeTimers[code].push(drawEndTimer);
-                }
-            }, 5000);
-            if (!activeTimers[code]) activeTimers[code] = [];
-            activeTimers[code].push(timer);
-        } else if (nextData.nextPhase === 'codenames') {
-            io.to(code).emit('showRoundTransition', {
-                round: 4,
-                roundTitle: 'الجولة الرابعة - كود نيمز',
-                roundDisplayName: 'كود نيمز'
-            });
-
-            const timer = setTimeout(() => {
-                const codenamesData = startCodenamesRound(code);
-                if (codenamesData) io.to(code).emit('startCodenamesRound', codenamesData);
-            }, 5000);
-            if (!activeTimers[code]) activeTimers[code] = [];
-            activeTimers[code].push(timer);
-        } else if (nextData.showRoundTransition) {
-            io.to(code).emit('showRoundTransition', {
-                round: nextData.round,
-                roundTitle: nextData.roundTitle,
-                roundDisplayName: nextData.roundDisplayName
-            });
-
-            const timer = setTimeout(() => {
-                io.to(code).emit('nextQuestion', nextData);
-
-                const trapTimer = setTimeout(() => {
-                    autoConfirmTrapPlayers(code, nextData.questionIndex);
-                    const teamOptionsData = buildOptions(code, nextData.questionIndex);
-                    if (teamOptionsData) {
-                        const { teamOptions, confirmedPlayers } = teamOptionsData;
-                        for (const [team, data] of Object.entries(teamOptions)) {
-                            const teamPlayers = Object.values(room.players).filter(p => p.team === team);
-                            for (const player of teamPlayers) {
-                                io.to(player.socketId).emit('showOptions', { options: data.options, confirmedPlayers });
-                            }
-                        }
-                        const optTimer = setTimeout(() => {
-                            autoConfirmOptionPlayers(code);
-                            const results = calculateQuestionResults(code, nextData.questionIndex);
-                            if (results) io.to(code).emit('questionResults', results);
-                        }, 10000);
-                        if (!activeTimers[code]) activeTimers[code] = [];
-                        activeTimers[code].push(optTimer);
-                    }
-                }, 10000);
-                if (!activeTimers[code]) activeTimers[code] = [];
-                activeTimers[code].push(trapTimer);
-            }, 5000);
-            if (!activeTimers[code]) activeTimers[code] = [];
-            activeTimers[code].push(timer);
-        } else {
-            io.to(code).emit('nextQuestion', nextData);
-
-            const trapTimer = setTimeout(() => {
-                autoConfirmTrapPlayers(code, nextData.questionIndex);
-                const teamOptionsData = buildOptions(code, nextData.questionIndex);
-                if (teamOptionsData) {
-                    const { teamOptions, confirmedPlayers } = teamOptionsData;
-                    for (const [team, data] of Object.entries(teamOptions)) {
-                        const teamPlayers = Object.values(room.players).filter(p => p.team === team);
-                        for (const player of teamPlayers) {
-                            io.to(player.socketId).emit('showOptions', { options: data.options, confirmedPlayers });
-                        }
-                    }
-                    const optTimer = setTimeout(() => {
-                        autoConfirmOptionPlayers(code);
-                        const results = calculateQuestionResults(code, nextData.questionIndex);
-                        if (results) io.to(code).emit('questionResults', results);
-                    }, 10000);
-                    if (!activeTimers[code]) activeTimers[code] = [];
-                    activeTimers[code].push(optTimer);
-                }
-            }, 10000);
-            if (!activeTimers[code]) activeTimers[code] = [];
-            activeTimers[code].push(trapTimer);
-        }
+        handleNextPhase(code);
     });
 
     socket.on('submitDrawGuess', ({ code, guess }) => {
@@ -334,7 +251,7 @@ io.on('connection', (socket) => {
     socket.on('endDrawRound', ({ code }) => {
         const room = getRoom(code);
         if (!room) return;
-        clearRoomTimers(code);
+        clearTimers(code);
 
         const randomCat = room.game.randomCategory;
         const catName = { culture: 'كرة قدم', cinema: 'سينما', wrestling: 'مصارعة' }[randomCat] || 'عشوائي';
@@ -345,7 +262,7 @@ io.on('connection', (socket) => {
             roundDisplayName: catName
         });
 
-        const timer = setTimeout(() => {
+        addTimer(code, () => {
             room.game.currentRound = 3;
             room.game.currentQuestionIndex = 0;
 
@@ -356,7 +273,7 @@ io.on('connection', (socket) => {
             }
             room.game.teamOptions = null;
 
-            const qData = {
+            const nextData = {
                 round: 3,
                 questionIndex: 0,
                 question: room.game.questions[3][0],
@@ -366,36 +283,12 @@ io.on('connection', (socket) => {
                 teamNames: room.teamNames,
                 isSolo: false,
                 totalQuestions: 5,
-                phase: 'trivia',
-                roundTitle: `الجولة الثالثة - ${catName}`
+                roundTitle: `الجولة الثالثة - ${catName}`,
+                isFinished: false
             };
-            io.to(code).emit('nextQuestion', qData);
-
-            const trapTimer = setTimeout(() => {
-                autoConfirmTrapPlayers(code, 0);
-                const teamOptionsData = buildOptions(code, 0);
-                if (teamOptionsData) {
-                    const { teamOptions, confirmedPlayers } = teamOptionsData;
-                    for (const [team, data] of Object.entries(teamOptions)) {
-                        const teamPlayers = Object.values(room.players).filter(p => p.team === team);
-                        for (const player of teamPlayers) {
-                            io.to(player.socketId).emit('showOptions', { options: data.options, confirmedPlayers });
-                        }
-                    }
-                    const optTimer = setTimeout(() => {
-                        autoConfirmOptionPlayers(code);
-                        const results = calculateQuestionResults(code, 0);
-                        if (results) io.to(code).emit('questionResults', results);
-                    }, 10000);
-                    if (!activeTimers[code]) activeTimers[code] = [];
-                    activeTimers[code].push(optTimer);
-                }
-            }, 10000);
-            if (!activeTimers[code]) activeTimers[code] = [];
-            activeTimers[code].push(trapTimer);
+            io.to(code).emit('nextQuestion', nextData);
+            startQuestionFlow(code, 0);
         }, 5000);
-        if (!activeTimers[code]) activeTimers[code] = [];
-        activeTimers[code].push(timer);
     });
 
     socket.on('revealCodenameWord', ({ code, wordIndex }) => {
@@ -407,34 +300,8 @@ io.on('connection', (socket) => {
             if (result.winner) {
                 const finishData = finishGame(code);
                 if (finishData) {
-                    if (finishData.winner) {
-                        io.to(code).emit('gameFinished', finishData);
-                    } else if (finishData.isTied) {
-                        const overtimeData = startOvertime(code);
-                        if (overtimeData) io.to(code).emit('startOvertime', overtimeData);
-                    }
+                    io.to(code).emit('gameFinished', finishData);
                 }
-            }
-        }
-    });
-
-    socket.on('submitOvertimeAnswer', ({ code, optionIndex }) => {
-        const room = getRoom(code);
-        if (!room) return;
-        const result = submitOvertimeAnswer(code, socket.id, optionIndex);
-        if (result) {
-            io.to(code).emit('overtimeResult', result);
-            if (result.gameOver) {
-                io.to(code).emit('gameFinished', {
-                    winner: result.winner,
-                    teamScores: result.teamScores,
-                    players: room.players,
-                    teamNames: result.teamNames,
-                    mode: room.mode
-                });
-            } else if (result.needMore) {
-                const overtimeData = startOvertime(code);
-                if (overtimeData) io.to(code).emit('startOvertime', overtimeData);
             }
         }
     });

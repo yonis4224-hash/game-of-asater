@@ -8,7 +8,6 @@ let timeLeft = 30;
 let playerName = localStorage.getItem('playerName') || '';
 let isHost = false;
 let selectedAvatar = parseInt(localStorage.getItem('selectedAvatar')) || 0;
-let isSoloMode = false;
 
 const avatarFiles = [
     'انمي.jpeg',
@@ -28,10 +27,10 @@ const avatarFiles = [
     'جيوكريس.jpeg',
     'Art by @gyo14keres on X.jpeg',
     'cute DP.jpeg',
-    'Mesut Özil  #YaGunnersYa   _ #COYG  #Arsenal.jpeg',
+    'Mesut Ozil Arsenal.jpeg',
     'non.jpeg',
-    'trajes personaje.jpeg',
-    'Viktor Gyokeres Celebration 🎉.jpeg',
+    'trajes personnage.jpeg',
+    'Viktor Gyokeres Celebration.jpeg',
     'viktor gyokeres.jpeg'
 ];
 
@@ -180,8 +179,8 @@ socket.on('kicked', ({ message }) => { alert(message); showScreen('screen-home')
 function updateLobby(room) {
     document.getElementById('roomCode').textContent = room.code;
     const totalPlayers = Object.keys(room.players).length;
-    const isSolo = room.mode === '1v1' || room.mode === 'solo';
-    document.getElementById('playerCount').textContent = isSolo ? `${totalPlayers}/2` : `${totalPlayers}/12`;
+    const isSolo = room.mode === 'solo';
+    document.getElementById('playerCount').textContent = isSolo ? `${totalPlayers}/8` : `${totalPlayers}/12`;
 
     const playersList = document.getElementById('playersList');
     playersList.innerHTML = '';
@@ -205,8 +204,7 @@ function updateLobby(room) {
                 <div class="player-status ready">${teamNames[player.team]} ${player.isLeader ? '👑' : ''}</div>
             </div>
             ${isMe && !isSolo ? `
-                <button class="team-switch-btn" onclick="switchTeam('${player.team === 'A' ? 'B' : 'A'}')"
-                    style="background: ${teamColors[player.team === 'A' ? 'B' : 'A']}; color: white; border: none; padding: 6px 14px; border-radius: 10px; cursor: pointer; font-family: 'Tajawal'; font-size: 0.8rem; font-weight: 700;">
+                <button class="team-switch-btn" onclick="switchTeam('${player.team === 'A' ? 'B' : 'A'}')">
                     انتقال للفريق ${player.team === 'A' ? 'ب' : 'أ'}
                 </button>
             ` : ''}
@@ -215,7 +213,7 @@ function updateLobby(room) {
         playersList.appendChild(item);
     });
 
-    const maxPlayers = isSolo ? 2 : 12;
+    const maxPlayers = isSolo ? 8 : 12;
     const progress = Math.min((totalPlayers / maxPlayers) * 100, 100);
     document.getElementById('progressFill').style.width = progress + '%';
 
@@ -255,7 +253,6 @@ function startGame() {
 socket.on('gameStarted', (gameData) => {
     currentRound = gameData.round;
     currentQuestionIndex = gameData.questionIndex;
-    isSoloMode = gameData.isSolo || false;
     loadQuestion(gameData);
     showScreen('screen-game');
     startTimer(gameData.timer, 'timer');
@@ -265,13 +262,7 @@ function loadQuestion(gameData) {
     const question = gameData.question;
     document.getElementById('questionText').textContent = question.س;
     document.getElementById('roundNumber').textContent = gameData.isSolo ? `${gameData.round}/15` : gameData.round;
-
-    if (gameData.isSolo) {
-        document.getElementById('roundTitle').textContent = `سؤال ${gameData.round} من 15`;
-    } else {
-        document.getElementById('roundTitle').textContent = gameData.roundTitle || `الجولة ${gameData.round}`;
-    }
-
+    document.getElementById('roundTitle').textContent = gameData.roundTitle || `الجولة ${gameData.round}`;
     updateScoreBoard(gameData.players, gameData.mode, gameData.teamNames);
 }
 
@@ -281,7 +272,7 @@ function updateScoreBoard(players, mode, teamNames) {
     scoreBoard.innerHTML = '';
     const tn = teamNames || { A: 'الفريق أ', B: 'الفريق ب' };
 
-    if (mode === '1v1' || mode === 'solo') {
+    if (mode === 'solo') {
         Object.values(players).forEach(player => {
             const item = document.createElement('div');
             item.className = 'score-item';
@@ -382,8 +373,8 @@ function showQuestionResults(data) {
     if (data.wrongPlayers.length > 0) {
         let html = `<div class="results-section"><h3><span class="results-icon wrong">❌</span> إجابات خاطئة</h3><div class="results-list">`;
         for (const p of data.wrongPlayers) {
-            const trapInfo = p.fromPlayer ? `من إجابة: <span class="trap-name">${p.fromPlayer}</span> 🎭` : '';
-            html += `<div class="result-player wrong"><span class="result-name">${p.name}</span><span class="result-team">${tn[p.team]}</span><span class="result-answer">اختار: "${p.selectedAnswer}"</span>${trapInfo ? `<span class="result-trap">${trapInfo}</span>` : ''}</div>`;
+            const trapInfo = p.fromPlayer ? `من إجابة: <span class="trap-name">${p.fromPlayer}</span>` : '';
+            html += `<div class="result-player wrong"><span class="result-name">${p.name}</span><span class="result-team">${tn[p.team]}</span><span class="result-answer">"${p.selectedAnswer}"</span>${trapInfo ? `<span class="result-trap">${trapInfo}</span>` : ''}</div>`;
         }
         html += `</div></div>`;
         container.innerHTML += html;
@@ -399,7 +390,7 @@ function showQuestionResults(data) {
         container.innerHTML += html;
     }
 
-    if (!data.isSolo && data.mode !== '1v1' && data.teamScores) {
+    if (!data.isSolo && data.mode !== 'solo' && data.teamScores) {
         let html = `<div class="results-section"><h3><span class="results-icon">📊</span> مجموع النقاط</h3><div class="results-list">`;
         for (const [team, score] of Object.entries(data.teamScores)) {
             html += `<div class="result-player team-score"><span class="result-name">${tn[team]}</span><span class="result-score">${score} نقطة</span></div>`;
@@ -516,49 +507,6 @@ socket.on('codenameRevealed', (result) => {
         const colorNames = { A: '🔴 الأحمر', B: '🔵 الأزرق' };
         document.getElementById('codenamesHint').innerHTML = `دور <span style="color: ${result.currentTeam === 'A' ? '#E74C3C' : '#3498DB'}">${colorNames[result.currentTeam]}</span> - ${tn[result.currentTeam]}`;
     }
-
-    if (result.winner) {
-        setTimeout(() => {
-            alert(`🏆 ${result.teamNames[result.winner]} فاز بكود نيمز! (+3 نقطة لكل لاعب)`);
-            const finishData = {
-                winner: result.winner,
-                teamScores: {},
-                players: {},
-                teamNames: result.teamNames,
-                mode: currentRoom?.mode
-            };
-            socket.emit('requestFinishGame', { code: currentRoom.code });
-        }, 500);
-    }
-});
-
-socket.on('startOvertime', (data) => {
-    hideWaiting();
-    document.getElementById('overtimeQuestionText').textContent = data.question.س;
-    const grid = document.getElementById('overtimeOptionsGrid');
-    grid.innerHTML = '';
-    const letters = ['أ', 'ب', 'ج', 'د'];
-    data.question.خيارات.forEach((opt, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'option-btn';
-        btn.onclick = function() { selectOption(this); };
-        btn.innerHTML = `<span class="option-letter">${letters[i]}</span> ${opt}`;
-        grid.appendChild(btn);
-    });
-    updateScoreBoard(data.players, currentRoom?.mode, data.teamNames);
-    showScreen('screen-overtime');
-    startTimer(data.timer, 'overtimeTimer');
-});
-
-function submitOvertimeAnswer() {
-    const selected = document.querySelector('#overtimeOptionsGrid .option-btn.selected');
-    const index = selected ? Array.from(document.querySelectorAll('#overtimeOptionsGrid .option-btn')).indexOf(selected) : 0;
-    socket.emit('submitOvertimeAnswer', { code: currentRoom.code, optionIndex: index });
-}
-
-socket.on('overtimeResult', (result) => {
-    if (result.isCorrect) alert('✅ إجابة صحيحة! +3 نقاط');
-    else alert('❌ إجابة خاطئة!');
 });
 
 socket.on('gameFinished', (data) => showFinalResults(data));
@@ -571,7 +519,7 @@ function showFinalResults(data) {
 
     const mode = data.mode || 'team';
 
-    if (mode === '1v1' || mode === 'solo') {
+    if (mode === 'solo') {
         const rankClasses = ['gold', 'silver', 'bronze'];
         const rankLabels = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن'];
         players.forEach((player, index) => {
@@ -795,8 +743,3 @@ function submitGuess() {
     if (currentRoom) socket.emit('submitDrawGuess', { code: currentRoom.code, guess });
     document.getElementById('guessInput').value = '';
 }
-
-setTimeout(() => {
-    const visual = document.getElementById('visualImage');
-    if (visual) visual.classList.add('revealed');
-}, 3000);

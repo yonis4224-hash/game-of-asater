@@ -30,13 +30,6 @@ const allCategories = {
     wrestling: cultureDB.مصارعة || []
 };
 
-const categoryNames = {
-    culture: 'ثقافة عامة',
-    cinema: 'سينما وأنمي',
-    history: 'تاريخ وجغرافيا',
-    wrestling: 'مصارعة'
-};
-
 const randomCategories = ['culture', 'cinema', 'wrestling'];
 const randomCategoryNames = {
     culture: 'كرة قدم',
@@ -57,7 +50,7 @@ function createRoom(hostSocketId, hostName) {
     rooms[code] = {
         code,
         host: hostSocketId,
-        mode: 'custom',
+        mode: 'team',
         teamNames: { A: 'الفريق أ', B: 'الفريق ب' },
         scores: {},
         players: {
@@ -85,10 +78,12 @@ function joinRoom(code, socketId, playerName, avatar) {
     const room = rooms[code];
     if (!room) return { success: false, message: 'الغرفة غير موجودة' };
     if (room.status !== 'waiting') return { success: false, message: 'اللعبة بدأت بالفعل' };
-    if (Object.keys(room.players).length >= 12) return { success: false, message: 'الغرفة ممتلئة' };
+
+    const maxPlayers = room.mode === 'solo' ? 8 : 12;
+    if (Object.keys(room.players).length >= maxPlayers) return { success: false, message: 'الغرفة ممتلئة' };
     if (room.players[socketId]) return { success: false, message: 'أنت بالفعل في الغرفة' };
 
-    const isSolo = room.mode === '1v1' || room.mode === 'solo';
+    const isSolo = room.mode === 'solo';
     let team = 'A';
     if (!isSolo) {
         const teams = Object.values(room.players).map(p => p.team);
@@ -118,14 +113,16 @@ function switchTeam(code, socketId, newTeam) {
     const room = rooms[code];
     if (!room || !room.players[socketId]) return null;
     if (room.status !== 'waiting') return null;
+    if (room.mode === 'solo') return null;
 
     const player = room.players[socketId];
     if (newTeam !== 'A' && newTeam !== 'B') return null;
 
     player.team = newTeam;
 
-    if (newTeam === 'A' && !room.players[Object.keys(room.players).find(id => room.players[id].isLeader && room.players[id].team === 'A')]) {
-        player.isLeader = true;
+    if (newTeam === 'A') {
+        const hasLeaderA = Object.values(room.players).some(p => p.isLeader && p.team === 'A');
+        if (!hasLeaderA) player.isLeader = true;
     }
 
     return room;
@@ -173,37 +170,28 @@ function getRoom(code) {
     return rooms[code] || null;
 }
 
-function getTeamScore(room, team) {
-    const players = Object.values(room.players).filter(p => p.team === team);
-    return players.reduce((sum, p) => sum + p.score, 0);
-}
-
-function getTeamCount(room, team) {
-    return Object.values(room.players).filter(p => p.team === team).length;
-}
-
 function startGame(code) {
     const room = rooms[code];
     if (!room) return null;
 
     room.status = 'playing';
-
-    const isSolo = room.mode === '1v1' || room.mode === 'solo';
+    const isSolo = room.mode === 'solo';
 
     room.game = {
         currentRound: 1,
         currentQuestionIndex: 0,
         timer: 10,
-        questions: [],
+        questions: null,
         teamOptions: null,
-        drawWord: null,
+        drawWords: null,
         drawGuesses: [],
         codenamesWords: null,
+        codenamesTeamWords: null,
         codenamesRevealed: {},
         codenamesCurrentTeam: 'A',
         codenamesScore: { A: 0, B: 0 },
+        codenamesWinner: null,
         isSolo: isSolo,
-        totalQuestions: isSolo ? 15 : 5,
         randomCategory: null,
         phase: 'trivia'
     };
@@ -242,7 +230,7 @@ function startGame(code) {
             teamNames: room.teamNames,
             isSolo: true,
             totalQuestions: 15,
-            phase: 'trivia'
+            roundTitle: 'سؤال 1 من 15'
         };
     } else {
         return {
@@ -256,7 +244,6 @@ function startGame(code) {
             teamNames: room.teamNames,
             isSolo: false,
             totalQuestions: 5,
-            phase: 'trivia',
             roundTitle: 'الجولة الأولى - أسئلة عامة'
         };
     }
@@ -275,21 +262,18 @@ function submitTrapAnswer(code, socketId, questionIndex, answer) {
     return { submittedCount, totalCount, allSubmitted: submittedCount === totalCount };
 }
 
-function autoConfirmTrapPlayers(code, questionIndex) {
+function autoConfirmTrapPlayers(code) {
     const room = rooms[code];
     if (!room) return null;
 
     for (const player of Object.values(room.players)) {
         if (!player.hasConfirmed) {
-            player.trapAnswer = player.trapAnswer || '';
+            player.trapAnswer = '';
             player.hasConfirmed = true;
         }
     }
 
-    const submittedCount = Object.values(room.players).filter(p => p.hasConfirmed === true).length;
-    const totalCount = Object.keys(room.players).length;
-
-    return { submittedCount, totalCount, allSubmitted: true };
+    return { allSubmitted: true };
 }
 
 function submitOption(code, socketId, questionIndex, optionIndex) {
@@ -318,13 +302,10 @@ function autoConfirmOptionPlayers(code) {
 
     for (const player of Object.values(room.players)) {
         if (!player.hasConfirmed) {
-            player.selectedOption = player.selectedOption !== null ? player.selectedOption : 0;
+            player.selectedOption = 0;
             player.hasConfirmed = true;
         }
     }
-
-    const submittedCount = Object.values(room.players).filter(p => p.selectedOption !== null).length;
-    const totalCount = Object.keys(room.players).length;
 
     const confirmedPlayers = Object.values(room.players).map(p => ({
         socketId: p.socketId,
@@ -333,7 +314,7 @@ function autoConfirmOptionPlayers(code) {
         confirmed: p.hasConfirmed === true
     }));
 
-    return { submittedCount, totalCount, allSubmitted: true, confirmedPlayers };
+    return { allSubmitted: true, confirmedPlayers };
 }
 
 function buildOptions(code, questionIndex) {
@@ -352,50 +333,10 @@ function buildOptions(code, questionIndex) {
     const correctAnswer = question.خيارات[question.الجواب];
     const defaultWrong = question.خيارات.filter((_, i) => i !== question.الجواب);
 
-    let options;
-
     if (isSolo) {
-        options = question.خيارات.map(text => ({ text, isTrap: false }));
-    } else {
-        const teams = [...new Set(Object.values(room.players).map(p => p.team))];
-        const teamOptions = {};
-
-        for (const team of teams) {
-            const opponentTraps = [];
-            const seenTexts = new Set([correctAnswer]);
-
-            for (const player of Object.values(room.players)) {
-                if (player.team !== team && player.trapAnswer && player.trapAnswer.trim() !== '' && !seenTexts.has(player.trapAnswer)) {
-                    opponentTraps.push({ text: player.trapAnswer, isTrap: true, fromPlayer: player.name });
-                    seenTexts.add(player.trapAnswer);
-                }
-            }
-
-            let teamOpts = [{ text: correctAnswer, isTrap: false }];
-
-            for (const trap of opponentTraps) {
-                if (teamOpts.length >= 4) break;
-                teamOpts.push(trap);
-            }
-
-            for (const wrong of defaultWrong) {
-                if (teamOpts.length >= 4) break;
-                if (!seenTexts.has(wrong)) {
-                    teamOpts.push({ text: wrong, isTrap: false });
-                    seenTexts.add(wrong);
-                }
-            }
-
-            for (let i = teamOpts.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [teamOpts[i], teamOpts[j]] = [teamOpts[j], teamOpts[i]];
-            }
-
-            const correctIndex = teamOpts.findIndex(o => o.text === correctAnswer);
-            teamOptions[team] = { options: teamOpts, correctIndex };
-        }
-
-        room.game.teamOptions = teamOptions;
+        const options = question.خيارات.map(text => ({ text, isTrap: false }));
+        const correctIndex = options.findIndex(o => o.text === correctAnswer);
+        room.game.teamOptions = { all: { options, correctIndex } };
 
         const confirmedPlayers = Object.values(room.players).map(p => ({
             socketId: p.socketId,
@@ -404,12 +345,48 @@ function buildOptions(code, questionIndex) {
             confirmed: false
         }));
 
-        return { teamOptions, confirmedPlayers };
+        return { teamOptions: { all: { options, correctIndex } }, confirmedPlayers };
     }
 
-    const correctIndex = options.findIndex(o => o.text === correctAnswer);
-    const soloOptions = { all: { options, correctIndex } };
-    room.game.teamOptions = soloOptions;
+    const teams = [...new Set(Object.values(room.players).map(p => p.team))];
+    const teamOptions = {};
+
+    for (const team of teams) {
+        const opponentTraps = [];
+        const seenTexts = new Set([correctAnswer]);
+
+        for (const player of Object.values(room.players)) {
+            if (player.team !== team && player.trapAnswer && player.trapAnswer.trim() !== '' && !seenTexts.has(player.trapAnswer)) {
+                opponentTraps.push({ text: player.trapAnswer, isTrap: true, fromPlayer: player.name });
+                seenTexts.add(player.trapAnswer);
+            }
+        }
+
+        let opts = [{ text: correctAnswer, isTrap: false }];
+
+        for (const trap of opponentTraps) {
+            if (opts.length >= 4) break;
+            opts.push(trap);
+        }
+
+        for (const wrong of defaultWrong) {
+            if (opts.length >= 4) break;
+            if (!seenTexts.has(wrong)) {
+                opts.push({ text: wrong, isTrap: false });
+                seenTexts.add(wrong);
+            }
+        }
+
+        for (let i = opts.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [opts[i], opts[j]] = [opts[j], opts[i]];
+        }
+
+        const correctIndex = opts.findIndex(o => o.text === correctAnswer);
+        teamOptions[team] = { options: opts, correctIndex };
+    }
+
+    room.game.teamOptions = teamOptions;
 
     const confirmedPlayers = Object.values(room.players).map(p => ({
         socketId: p.socketId,
@@ -418,7 +395,7 @@ function buildOptions(code, questionIndex) {
         confirmed: false
     }));
 
-    return { teamOptions: soloOptions, confirmedPlayers };
+    return { teamOptions, confirmedPlayers };
 }
 
 function calculateQuestionResults(code, questionIndex) {
@@ -525,7 +502,7 @@ function resetForNextQuestion(code) {
     room.game.currentQuestionIndex++;
 
     if (isSolo) {
-        if (room.game.currentQuestionIndex >= room.game.totalQuestions) {
+        if (room.game.currentQuestionIndex >= 15) {
             const finishData = finishGame(code);
             return { isFinished: true, finishData };
         }
@@ -540,13 +517,13 @@ function resetForNextQuestion(code) {
             teamNames: room.teamNames,
             isSolo: true,
             totalQuestions: 15,
-            phase: 'trivia',
+            roundTitle: `سؤال ${room.game.currentQuestionIndex + 1} من 15`,
             isFinished: false
         };
     }
 
     const questions = room.game.questions[room.game.currentRound];
-    if (room.game.currentQuestionIndex >= questions.length) {
+    if (!questions || room.game.currentQuestionIndex >= questions.length) {
         room.game.currentRound++;
         room.game.currentQuestionIndex = 0;
 
@@ -574,7 +551,6 @@ function resetForNextQuestion(code) {
                 teamNames: room.teamNames,
                 isSolo: false,
                 totalQuestions: 5,
-                phase: 'trivia',
                 roundTitle: getRoundTitle(3, false, room.game.randomCategory),
                 isFinished: false,
                 showRoundTransition: true,
@@ -593,7 +569,6 @@ function resetForNextQuestion(code) {
         teamNames: room.teamNames,
         isSolo: false,
         totalQuestions: 5,
-        phase: 'trivia',
         roundTitle: getRoundTitle(room.game.currentRound, false, room.game.randomCategory),
         isFinished: false
     };
@@ -621,7 +596,6 @@ function startDrawRound(code) {
         timer: 30,
         round: 2,
         roundTitle: 'الجولة الثانية - الرسم',
-        showRoundTransition: true,
         roundDisplayName: 'الرسم'
     };
 }
@@ -663,6 +637,7 @@ function startCodenamesRound(code) {
     room.game.codenamesRevealed = {};
     room.game.codenamesCurrentTeam = 'A';
     room.game.codenamesScore = { A: 0, B: 0 };
+    room.game.codenamesWinner = null;
 
     const leaders = {};
     Object.values(room.players).forEach(p => {
@@ -679,7 +654,6 @@ function startCodenamesRound(code) {
         teamColors: { A: 'red', B: 'blue' },
         round: 4,
         roundTitle: 'الجولة الرابعة - كود نيمز',
-        showRoundTransition: true,
         roundDisplayName: 'كود نيمز'
     };
 }
@@ -754,56 +728,6 @@ function revealCodenameWord(code, socketId, wordIndex) {
     return { revealed: 'neutral', score: room.game.codenamesScore, currentTeam: room.game.codenamesCurrentTeam, teamNames: room.teamNames, teamColors: { A: 'red', B: 'blue' } };
 }
 
-function startOvertime(code) {
-    const room = rooms[code];
-    if (!room) return null;
-
-    const allQuestions = [...allCategories.culture, ...allCategories.cinema, ...allCategories.history, ...allCategories.wrestling];
-    const question = shuffleArray(allQuestions)[0];
-
-    room.game.overtimeQuestion = question;
-    room.game.overtimeTimer = 15;
-
-    return {
-        question,
-        players: room.players,
-        teamNames: room.teamNames,
-        timer: 15
-    };
-}
-
-function submitOvertimeAnswer(code, socketId, optionIndex) {
-    const room = rooms[code];
-    if (!room || !room.game || !room.game.overtimeQuestion) return null;
-
-    const player = room.players[socketId];
-    if (!player) return null;
-
-    const question = room.game.overtimeQuestion;
-    const isCorrect = optionIndex === question.الجواب;
-
-    if (isCorrect) {
-        player.score += 3;
-        room.scores[socketId] = player.score;
-
-        const teamScores = {};
-        for (const p of Object.values(room.players)) {
-            teamScores[p.team] = (teamScores[p.team] || 0) + p.score;
-        }
-
-        const maxScore = Math.max(...Object.values(teamScores));
-        const winners = Object.entries(teamScores).filter(([_, s]) => s === maxScore);
-
-        if (winners.length === 1) {
-            return { isCorrect: true, winner: winners[0][0], teamScores, teamNames: room.teamNames, gameOver: true };
-        }
-
-        return { isCorrect: true, teamScores, teamNames: room.teamNames, gameOver: false, needMore: true };
-    }
-
-    return { isCorrect: false, teamNames: room.teamNames };
-}
-
 function finishGame(code) {
     const room = rooms[code];
     if (!room) return null;
@@ -860,8 +784,6 @@ module.exports = {
     submitDrawGuess,
     startCodenamesRound,
     revealCodenameWord,
-    startOvertime,
-    submitOvertimeAnswer,
     finishGame,
     rooms,
     autoConfirmTrapPlayers,

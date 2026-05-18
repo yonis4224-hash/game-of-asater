@@ -10,7 +10,7 @@
 </head>
 <body>
     <div class="bg-animation"></div>
-    
+
     <div class="floating-icons">
         <i class="floating-icon fas fa-futbol" style="top: 10%; left: 5%; animation-delay: 0s;"></i>
         <i class="floating-icon fas fa-trophy" style="top: 20%; right: 10%; animation-delay: 2s;"></i>
@@ -66,20 +66,15 @@
         <p class="section-subtitle">كيف تريد أن تتحدى أصدقاءك؟</p>
 
         <div class="mode-grid">
-            <div class="mode-card" onclick="selectMode(this, '1v1')">
+            <div class="mode-card" onclick="selectMode(this, 'solo')">
                 <span class="mode-icon">⚔️</span>
-                <div class="mode-title">المواجهة الفردية</div>
-                <div class="mode-desc">1 ضد 1 - تحدٍ مباشر</div>
+                <div class="mode-title">الوضع الفردي</div>
+                <div class="mode-desc">حتى 8 لاعبين - 15 سؤال عشوائي</div>
             </div>
-            <div class="mode-card" onclick="selectMode(this, '2v2')">
-                <span class="mode-icon">🤝</span>
-                <div class="mode-title">اللعب التعاوني</div>
-                <div class="mode-desc">2 ضد 2 - عمل جماعي</div>
-            </div>
-            <div class="mode-card" onclick="selectMode(this, '4v4')">
+            <div class="mode-card" onclick="selectMode(this, 'team')">
                 <span class="mode-icon">🏟️</span>
-                <div class="mode-title">المواجهة الملحمية</div>
-                <div class="mode-desc">4 ضد 4 - للمحترفين!</div>
+                <div class="mode-title">الوضع الجماعي</div>
+                <div class="mode-desc">من 2 ضد 2 إلى 6 ضد 6 - 4 جولات</div>
             </div>
         </div>
 
@@ -150,7 +145,7 @@
             <div class="round-info">
                 <div class="round-number" id="roundNumber">1</div>
                 <div>
-                    <div class="round-title" id="roundTitle">الجولة الأولى - ثقافة عامة</div>
+                    <div class="round-title" id="roundTitle">الجولة الأولى - أسئلة عامة</div>
                     <span class="badge badge-gold"><i class="fas fa-shield-alt"></i> نظام الفخاخ</span>
                 </div>
             </div>
@@ -196,7 +191,7 @@
                 <div class="round-number" id="roundNumber2">1</div>
                 <div><div class="round-title">اختر الإجابة الصحيحة</div></div>
             </div>
-            <div class="timer warning" id="timer2">00:15</div>
+            <div class="timer warning" id="timer2">00:10</div>
         </div>
 
         <div class="confirmed-players-bar" id="confirmedPlayersList"></div>
@@ -243,7 +238,7 @@
 
         <div class="game-header">
             <div class="round-info">
-                <div class="round-number">5</div>
+                <div class="round-number">2</div>
                 <div>
                     <div class="round-title">طور الرسم</div>
                     <span class="badge badge-purple"><i class="fas fa-paint-brush"></i> ارسم لزملائك</span>
@@ -301,7 +296,7 @@
 
         <div class="game-header">
             <div class="round-info">
-                <div class="round-number" style="background: linear-gradient(135deg, #E74C3C, #3498DB);">6</div>
+                <div class="round-number" style="background: linear-gradient(135deg, #E74C3C, #3498DB);">4</div>
                 <div>
                     <div class="round-title">كود نيمز</div>
                     <span class="badge badge-gold"><i class="fas fa-key"></i> الفريق الأحمر vs الأزرق</span>
@@ -315,42 +310,10 @@
             <div style="font-size: 1.5rem; font-weight: 900;" id="codenamesHint">---</div>
         </div>
 
-        <div id="codenamesLeaderHint" style="display: none;" class="card card-purple" style="text-align: center; margin-bottom: 10px;">
+        <div id="codenamesLeaderHint" style="display: none;" class="card card-purple">
         </div>
 
         <div class="codenames-grid" id="codenamesGrid"></div>
-    </div>
-
-    <div class="screen" id="screen-overtime">
-        <div class="header-bar">
-            <div class="header-logo">لعبة الأساطير</div>
-            <div class="header-icons">
-                <div class="header-icon"><i class="fas fa-pause"></i></div>
-            </div>
-        </div>
-
-        <div class="game-header">
-            <div class="round-info">
-                <div class="round-number">⚡</div>
-                <div>
-                    <div class="round-title">جولة إضافية - التعادل!</div>
-                    <span class="badge badge-gold"><i class="fas fa-bolt"></i> فاصل</span>
-                </div>
-            </div>
-            <div class="timer warning" id="overtimeTimer">00:15</div>
-        </div>
-
-        <div class="score-board" id="overtimeScoreBoard"></div>
-
-        <div class="question-card">
-            <div class="question-text" id="overtimeQuestionText"></div>
-        </div>
-
-        <div class="options-grid" id="overtimeOptionsGrid"></div>
-
-        <button class="btn btn-primary btn-block" onclick="submitOvertimeAnswer()">
-            <i class="fas fa-check-circle"></i> تأكيد
-        </button>
     </div>
 
     <div class="screen" id="screen-results">
