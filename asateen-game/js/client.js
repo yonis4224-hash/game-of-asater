@@ -10,30 +10,10 @@ let isHost = false;
 let selectedAvatar = parseInt(localStorage.getItem('selectedAvatar')) || 0;
 let selectedGameMode = 'solo';
 
-const avatarFiles = [
-    'انمي.jpeg',
-    'تنزيل (1).jpeg',
-    'تنزيل (2).jpeg',
-    'تنزيل (3).jpeg',
-    'تنزيل (4).jpeg',
-    'تنزيل (5).jpeg',
-    'تنزيل (6).jpeg',
-    'تنزيل (7).jpeg',
-    'تنزيل (8).jpeg',
-    'تنزيل (9).jpeg',
-    'تنزيل (10).jpeg',
-    'تنزيل (11).jpeg',
-    'تنزيل (12).jpeg',
-    'تنزيل (13).jpeg',
-    'جيوكريس.jpeg',
-    'Art by @gyo14keres on X.jpeg',
-    'cute DP.jpeg',
-    'Mesut Özil  #YaGunnersYa   _ #COYG  #Arsenal.jpeg',
-    'non.jpeg',
-    'trajes personnage.jpeg',
-    'Viktor Gyokeres Celebration 🎉.jpeg',
-    'viktor gyokeres.jpeg'
-];
+const avatarFiles = [];
+for (let i = 1; i <= 22; i++) {
+    avatarFiles.push(`avatar${i}.jpeg`);
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     if (playerName) document.getElementById('playerNameInput').value = playerName;
@@ -53,7 +33,7 @@ function initAvatarSelector() {
     avatarFiles.forEach((file, i) => {
         const div = document.createElement('div');
         div.className = 'avatar-option' + (selectedAvatar === i ? ' selected' : '');
-        div.innerHTML = `<img src="avatars/${encodeURIComponent(file)}" alt="avatar ${i+1}">`;
+        div.innerHTML = `<img src="avatars/${file}" alt="avatar ${i+1}">`;
         div.onclick = () => {
             selectedAvatar = i;
             localStorage.setItem('selectedAvatar', i);
@@ -68,7 +48,7 @@ function initAvatarSelector() {
 function getAvatarHTML(avatarIndex) {
     const idx = typeof avatarIndex === 'number' ? avatarIndex : (parseInt(avatarIndex) || 0);
     const file = avatarFiles[idx] || avatarFiles[0];
-    return `<div class="player-avatar"><img src="avatars/${encodeURIComponent(file)}" alt="avatar"></div>`;
+    return `<div class="player-avatar"><img src="avatars/${file}" alt="avatar"></div>`;
 }
 
 function showScreen(screenId) {
@@ -441,7 +421,7 @@ function renderConfirmedPlayers(confirmedPlayers) {
         div.className = 'confirmed-player' + (player.confirmed ? ' confirmed' : '');
         const file = avatarFiles[player.avatar] || avatarFiles[0];
         div.innerHTML = `
-            <img src="avatars/${encodeURIComponent(file)}" alt="${player.name}" class="confirmed-avatar">
+            <img src="avatars/${file}" alt="${player.name}" class="confirmed-avatar">
             <span class="confirmed-name">${player.name}</span>
             ${player.confirmed ? '<i class="fas fa-check-circle confirmed-check"></i>' : ''}
         `;
