@@ -26,6 +26,7 @@ let questionsPerRound = 5;
 let currentRoundName = '';
 let trapTimer = 10;
 let confirmedPlayers = {};
+let trapAnswers = [];
 
 function loadQuestions() {
     const cultureQuestions = [

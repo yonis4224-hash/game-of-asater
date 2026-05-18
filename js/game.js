@@ -72,20 +72,15 @@ function loadSoloQuestion() {
     
     const question = roundQuestions[currentQuestionInRound];
     confirmedPlayers = {};
+    trapAnswers = [];
     
-    if (question.خيارات) {
-        loadOptionsScreen();
-        showScreen('screen-game-options');
-        updatePlayersStatus('options');
-    } else {
-        document.getElementById('questionText').textContent = question.س;
-        document.getElementById('roundNumber').textContent = `${currentQuestionInRound + 1}/15`;
-        document.getElementById('roundTitle').textContent = 'سؤال فردي';
-        document.getElementById('answerInput').value = '';
-        showScreen('screen-game');
-        updatePlayersStatus('game');
-    }
+    document.getElementById('questionText').textContent = question.س;
+    document.getElementById('answerInput').value = '';
+    document.getElementById('roundNumber').textContent = `${currentQuestionInRound + 1}/15`;
+    document.getElementById('roundTitle').textContent = 'سؤال فردي';
     
+    showScreen('screen-game');
+    updatePlayersStatus('game');
     updateScoreBoard();
     startTimer(10);
 }
@@ -116,13 +111,11 @@ function loadTeamRound() {
     }
     
     const roundNames = ['أسئلة عامة', 'الرسم', 'ارمي عشوائي', 'كود نيمز'];
-    const roundCategories = ['culture', 'draw', 'random', 'codenames'];
-    
     currentRoundName = roundNames[currentRound - 1];
     
     showRoundTransition(currentRoundName, () => {
         if (currentRound === 1) {
-            const questions = questionsDB.culture.sort(() => 0.5 - Math.random()).slice(0, 5);
+            const questions = [...questionsDB.culture].sort(() => 0.5 - Math.random()).slice(0, 5);
             roundQuestions = questions;
             currentQuestionInRound = 0;
             loadTeamQuestion();
@@ -172,20 +165,15 @@ function loadTeamQuestion() {
     
     const question = roundQuestions[currentQuestionInRound];
     confirmedPlayers = {};
+    trapAnswers = [];
     
-    if (question.خيارات) {
-        loadOptionsScreen();
-        showScreen('screen-game-options');
-        updatePlayersStatus('options');
-    } else {
-        document.getElementById('questionText').textContent = question.س;
-        document.getElementById('roundNumber').textContent = currentRound;
-        document.getElementById('roundTitle').textContent = currentRoundName;
-        document.getElementById('answerInput').value = '';
-        showScreen('screen-game');
-        updatePlayersStatus('game');
-    }
+    document.getElementById('questionText').textContent = question.س;
+    document.getElementById('answerInput').value = '';
+    document.getElementById('roundNumber').textContent = currentRound;
+    document.getElementById('roundTitle').textContent = currentRoundName;
     
+    showScreen('screen-game');
+    updatePlayersStatus('game');
     updateScoreBoard();
     startTimer(10);
 }
@@ -195,13 +183,41 @@ function loadDrawRound() {
     startTimer(30);
 }
 
+function submitDrawGuess() {
+    const guess = document.getElementById('drawGuessInput').value.trim();
+    const drawer = getCurrentPlayer();
+    const guesser = getCurrentPlayer();
+    
+    if (timer) clearInterval(timer);
+    
+    if (guess && checkDrawGuess(guess)) {
+        if (selectedMode === 'solo') {
+            scores[guesser] = (scores[guesser] || 0) + 3;
+        } else {
+            const currentTeam = teams.teamA.includes(guesser) ? 'teamA' : 'teamB';
+            teamScores[currentTeam] += 3;
+            scores[guesser] = (scores[guesser] || 0) + 3;
+            scores[drawer] = (scores[drawer] || 0) + 3;
+        }
+    }
+    
+    currentRound++;
+    currentQuestionInRound = 0;
+    loadTeamRound();
+}
+
+function checkDrawGuess(guess) {
+    const drawWords = ['كرة ذهبية', 'كأس العالم', 'ملعب', 'حكم', 'لاعب'];
+    return drawWords.some(w => guess.includes(w) || w.includes(guess));
+}
+
 function loadRandomRound() {
     const categories = ['football', 'wrestling', 'cinema'];
     const categoryNames = { football: 'كرة قدم', wrestling: 'مصارعة', cinema: 'سينما' };
     const chosen = categories[Math.floor(Math.random() * categories.length)];
     currentRoundName = categoryNames[chosen];
     
-    const questions = questionsDB[chosen].sort(() => 0.5 - Math.random()).slice(0, 5);
+    const questions = [...questionsDB[chosen]].sort(() => 0.5 - Math.random()).slice(0, 5);
     roundQuestions = questions;
     currentQuestionInRound = 0;
     
@@ -215,13 +231,27 @@ function loadCodenamesRound() {
     startTimer(60);
 }
 
+function submitCodenames() {
+    if (timer) clearInterval(timer);
+    
+    const selectedCards = document.querySelectorAll('.codename-card.selected');
+    const currentPlayer = getCurrentPlayer();
+    const currentTeam = teams.teamA.includes(currentPlayer) ? 'teamA' : 'teamB';
+    
+    teamScores[currentTeam] += 3;
+    scores[currentPlayer] = (scores[currentPlayer] || 0) + 3;
+    
+    currentRound++;
+    currentQuestionInRound = 0;
+    loadTeamRound();
+}
+
 function updatePlayersStatus(screen) {
     const barId = screen === 'game' ? 'playersConfirmBarGame' : 'playersConfirmBarOptions';
     const bar = document.getElementById(barId);
     if (!bar) return;
     
     bar.innerHTML = '';
-    const isOptions = screen === 'options';
     
     players.forEach(player => {
         const dot = document.createElement('div');
@@ -244,11 +274,27 @@ function submitAnswer() {
     confirmedPlayers[playerName] = true;
     updatePlayersStatus('game');
     
-    if (selectedMode === 'solo') {
-        processSoloAnswer(answer);
-    } else {
-        processTeamAnswer(answer);
+    const question = roundQuestions[currentQuestionInRound];
+    if (!question) return;
+    
+    if (answer && !checkAnswer(answer, question)) {
+        trapAnswers.push({ player: playerName, answer: answer });
     }
+    
+    if (answer && checkAnswer(answer, question)) {
+        if (selectedMode === 'solo') {
+            scores[playerName] = (scores[playerName] || 0) + 3;
+        } else {
+            const currentTeam = teams.teamA.includes(playerName) ? 'teamA' : 'teamB';
+            teamScores[currentTeam] += 3;
+            scores[playerName] = (scores[playerName] || 0) + 3;
+        }
+    }
+    
+    loadOptionsScreen();
+    showScreen('screen-game-options');
+    updatePlayersStatus('options');
+    startTimer(10);
 }
 
 function processSoloAnswer(answer) {
@@ -336,10 +382,56 @@ function confirmOption() {
     confirmedPlayers[playerName] = true;
     updatePlayersStatus('options');
     
-    if (selectedMode === 'solo') {
-        processSoloAnswer('');
+    const question = roundQuestions[currentQuestionInRound];
+    if (!question) return;
+    
+    const selectedBtn = document.querySelector('.option-btn.selected');
+    
+    if (question.خيارات) {
+        if (selectedBtn) {
+            const selectedText = selectedBtn.textContent.replace(/^[أ-د]\s*/, '').trim();
+            const correctOption = question.خيارات[question.الجواب];
+            
+            if (selectedText === correctOption || selectedText.includes(correctOption) || correctOption.includes(selectedText)) {
+                if (selectedMode === 'solo') {
+                    scores[playerName] = (scores[playerName] || 0) + 3;
+                } else {
+                    const currentTeam = teams.teamA.includes(playerName) ? 'teamA' : 'teamB';
+                    teamScores[currentTeam] += 3;
+                    scores[playerName] = (scores[playerName] || 0) + 3;
+                }
+            }
+        }
     } else {
-        processTeamAnswer('');
+        if (selectedBtn) {
+            const selectedText = selectedBtn.textContent.replace(/^[أ-د]\s*/, '').trim();
+            const correctAnswer = question.جواب;
+            
+            if (selectedText === correctAnswer || selectedText.includes(correctAnswer) || correctAnswer.includes(selectedText)) {
+                if (selectedMode === 'solo') {
+                    scores[playerName] = (scores[playerName] || 0) + 3;
+                } else {
+                    const currentTeam = teams.teamA.includes(playerName) ? 'teamA' : 'teamB';
+                    teamScores[currentTeam] += 3;
+                    scores[playerName] = (scores[playerName] || 0) + 3;
+                }
+            } else {
+                const trap = trapAnswers.find(t => t.answer === selectedText);
+                if (trap) {
+                    scores[trap.player] = (scores[trap.player] || 0) + 1;
+                }
+            }
+        }
+    }
+    
+    trapAnswers = [];
+    
+    if (selectedMode === 'solo') {
+        currentQuestionInRound++;
+        loadSoloQuestion();
+    } else {
+        currentQuestionInRound++;
+        loadTeamQuestion();
     }
 }
 
@@ -368,13 +460,9 @@ function autoSubmit() {
     } else if (document.getElementById('screen-game-options').classList.contains('active')) {
         confirmOption();
     } else if (document.getElementById('screen-draw').classList.contains('active')) {
-        currentRound++;
-        currentQuestionInRound = 0;
-        loadTeamRound();
+        submitDrawGuess();
     } else if (document.getElementById('screen-codenames').classList.contains('active')) {
-        currentRound++;
-        currentQuestionInRound = 0;
-        loadTeamRound();
+        submitCodenames();
     }
 }
 
@@ -506,7 +594,7 @@ function displayResults() {
 
 function loadOptionsScreen() {
     const question = roundQuestions[currentQuestionInRound];
-    if (!question || !question.خيارات) return;
+    if (!question) return;
     
     document.getElementById('questionText2').textContent = question.س;
     
@@ -514,7 +602,17 @@ function loadOptionsScreen() {
     grid.innerHTML = '';
     
     const letters = ['أ', 'ب', 'ج', 'د'];
-    question.خيارات.forEach((option, index) => {
+    
+    let options;
+    if (question.خيارات) {
+        options = [...question.خيارات];
+    } else {
+        const correctAnswer = question.جواب || 'الإجابة الصحيحة';
+        const traps = trapAnswers.map(t => t.answer).filter((v, i, a) => a.indexOf(v) === i);
+        options = [correctAnswer, ...traps].slice(0, 4);
+    }
+    
+    options.forEach((option, index) => {
         const btn = document.createElement('button');
         btn.className = 'option-btn';
         btn.onclick = function() { selectOption(this); };
@@ -529,6 +627,7 @@ function restartGame() {
     scores = {};
     teamScores = { teamA: 0, teamB: 0 };
     confirmedPlayers = {};
+    trapAnswers = [];
     showScreen('screen-home');
 }
 

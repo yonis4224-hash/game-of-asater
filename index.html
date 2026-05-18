@@ -283,8 +283,12 @@
 
         <div class="input-group">
             <label><i class="fas fa-comment-dots"></i> تخمين زميلك:</label>
-            <input type="text" class="input-field" placeholder="اكتب تخمينك هنا...">
+            <input type="text" class="input-field" id="drawGuessInput" placeholder="اكتب تخمينك هنا...">
         </div>
+
+        <button class="btn btn-primary btn-block" onclick="submitDrawGuess()">
+            <i class="fas fa-check-circle"></i> تأكيد التخمين
+        </button>
     </div>
 
     <div class="screen" id="screen-codenames">
@@ -330,6 +334,10 @@
             <div class="codename-card neutral" onclick="selectCodename(this)">تسلل</div>
             <div class="codename-card team-a" onclick="selectCodename(this)">مراوغة</div>
         </div>
+
+        <button class="btn btn-primary btn-block" onclick="submitCodenames()" style="margin-top: 25px;">
+            <i class="fas fa-check-circle"></i> تأكيد الاختيار
+        </button>
     </div>
 
     <div class="screen" id="screen-visual">
