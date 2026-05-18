@@ -680,3 +680,138 @@ body {
 }
 
 .crown-icon { color: var(--gold); font-size: 1.3rem; }
+
+.round-transition-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(13, 10, 26, 0.95); z-index: 2000;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    backdrop-filter: blur(15px);
+}
+
+.round-transition-content {
+    text-align: center; animation: fadeIn 0.5s ease;
+}
+
+.round-transition-icon {
+    font-size: 4rem; margin-bottom: 20px;
+    animation: pulse 1.5s infinite;
+}
+
+.round-transition-title {
+    font-size: 2rem; font-weight: 900;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 10px;
+}
+
+.round-transition-subtitle {
+    font-size: 1.3rem; color: #B8A9C9; font-weight: 600;
+    margin-bottom: 30px;
+}
+
+.round-transition-loader {
+    width: 50px; height: 50px; margin: 0 auto;
+    border: 4px solid var(--glass-border);
+    border-top-color: var(--gold); border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@media (max-width: 768px) {
+    .screen { padding: 12px; }
+    .logo { font-size: 1.6rem; letter-spacing: 3px; }
+    .logo::after { right: -30px; font-size: 1.4rem; }
+    .logo-subtitle { font-size: 0.8rem; }
+    .header-bar { padding: 10px 14px; margin-bottom: 12px; }
+    .header-logo { font-size: 1.1rem; }
+    .header-icon { width: 32px; height: 32px; font-size: 0.8rem; }
+    .section-title { font-size: 1.3rem; margin-bottom: 8px; }
+    .section-subtitle { font-size: 0.85rem; margin-bottom: 20px; }
+    .mode-grid { gap: 12px; }
+    .mode-card { padding: 20px 16px; }
+    .mode-icon { font-size: 2rem; margin-bottom: 10px; }
+    .mode-title { font-size: 1rem; }
+    .mode-desc { font-size: 0.8rem; }
+    .card { padding: 16px; margin-bottom: 14px; border-radius: 14px; }
+    .room-code { font-size: 1.5rem; padding: 14px; letter-spacing: 6px; }
+    .player-item { padding: 10px 12px; gap: 8px; }
+    .player-avatar { width: 34px; height: 34px; }
+    .player-name { font-size: 0.85rem; }
+    .player-status { font-size: 0.7rem; }
+    .game-header { margin-bottom: 12px; }
+    .round-number { width: 34px; height: 34px; font-size: 1rem; }
+    .round-title { font-size: 0.9rem; }
+    .timer { padding: 8px 14px; font-size: 1.2rem; }
+    .score-board { gap: 8px; margin: 12px 0; }
+    .score-item { padding: 10px 12px; }
+    .score-name { font-size: 0.75rem; }
+    .score-value { font-size: 1.4rem; }
+    .question-card { padding: 18px; margin: 14px 0; border-radius: 16px; }
+    .question-text { font-size: 1rem; line-height: 1.5; }
+    .question-card::before { font-size: 1.8rem; top: -16px; }
+    .options-grid { gap: 8px; margin: 14px 0; }
+    .option-btn { padding: 12px; font-size: 0.85rem; gap: 8px; }
+    .option-letter { width: 28px; height: 28px; font-size: 0.8rem; }
+    .btn { padding: 12px 24px; font-size: 0.9rem; border-radius: 12px; }
+    .btn-large { padding: 14px 28px; font-size: 0.95rem; }
+    .input-field { padding: 12px 14px; font-size: 0.9rem; }
+    .input-group { margin-bottom: 14px; }
+    .input-group label { font-size: 0.85rem; margin-bottom: 6px; }
+    .avatar-selector { grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px; }
+    .avatar-option { width: 55px; height: 55px; }
+    .drawing-canvas { height: 250px; }
+    .canvas-tools { gap: 6px; }
+    .tool-btn { width: 34px; height: 34px; font-size: 0.85rem; }
+    .codenames-grid { gap: 6px; }
+    .codename-card { font-size: 0.7rem; border-radius: 10px; padding: 4px; }
+    .results-container { padding: 0 5px; }
+    .results-section { padding: 14px; margin-bottom: 10px; }
+    .results-section h3 { font-size: 0.9rem; }
+    .result-player { padding: 10px 12px; font-size: 0.8rem; }
+    .result-name { font-size: 0.85rem; }
+    .result-score { font-size: 0.9rem; }
+    .winner-crown { font-size: 3rem; }
+    .winner-name { font-size: 1.5rem; }
+    .winner-score { font-size: 0.95rem; }
+    .final-score-item { padding: 12px 14px; gap: 10px; }
+    .rank-badge { width: 30px; height: 30px; font-size: 0.85rem; }
+    .confirmed-player { padding: 4px 8px; font-size: 0.7rem; }
+    .confirmed-avatar { width: 22px; height: 22px; }
+    .confirmed-name { max-width: 45px; font-size: 0.7rem; }
+    .trap-notification { padding: 14px; margin: 10px 0; }
+    .trap-icon { font-size: 2rem; }
+    .trap-title { font-size: 0.95rem; }
+    .trap-message { font-size: 0.8rem; }
+    .badge { padding: 4px 10px; font-size: 0.65rem; }
+    .team-selector { padding: 8px 12px; gap: 8px; }
+    .team-selector label { font-size: 0.8rem; }
+    .team-selector input { padding: 6px 10px; font-size: 0.8rem; }
+    .nav-buttons { margin-top: 20px; gap: 10px; }
+    .divider { margin: 20px 0; }
+    .drawing-word-display { font-size: 1.2rem; padding: 12px 20px; }
+    .guess-input-container { flex-direction: column; }
+    .guess-input-container input { padding: 10px 14px; }
+    .guess-input-container button { padding: 10px 20px; }
+    .round-transition-title { font-size: 1.5rem; }
+    .round-transition-subtitle { font-size: 1rem; }
+    .round-transition-icon { font-size: 3rem; }
+    .round-transition-loader { width: 40px; height: 40px; }
+}
+
+@media (max-width: 480px) {
+    .screen { padding: 10px; }
+    .logo { font-size: 1.4rem; }
+    .header-bar { padding: 8px 10px; }
+    .header-logo { font-size: 1rem; }
+    .section-title { font-size: 1.15rem; }
+    .mode-card { padding: 16px 12px; }
+    .room-code { font-size: 1.3rem; padding: 12px; }
+    .question-card { padding: 14px; }
+    .question-text { font-size: 0.9rem; }
+    .option-btn { padding: 10px; font-size: 0.8rem; }
+    .timer { padding: 6px 12px; font-size: 1rem; }
+    .score-value { font-size: 1.2rem; }
+    .drawing-canvas { height: 200px; }
+    .codenames-grid { grid-template-columns: repeat(3, 1fr); }
+    .avatar-selector { grid-template-columns: repeat(3, 1fr); }
+    .avatar-option { width: 50px; height: 50px; }
+}

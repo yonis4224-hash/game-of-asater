@@ -8,6 +8,7 @@ let timeLeft = 30;
 let playerName = localStorage.getItem('playerName') || '';
 let isHost = false;
 let selectedAvatar = parseInt(localStorage.getItem('selectedAvatar')) || 0;
+let isSoloMode = false;
 
 const avatarFiles = [
     'انمي.jpeg',
@@ -70,6 +71,7 @@ function showScreen(screenId) {
     const screen = document.getElementById(screenId);
     if (screen) screen.classList.add('active');
     hideWaiting();
+    hideRoundTransition();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -87,6 +89,32 @@ function showWaiting() {
 
 function hideWaiting() {
     const overlay = document.getElementById('waitingOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+function showRoundTransition(data) {
+    let overlay = document.getElementById('roundTransitionOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'roundTransitionOverlay';
+        overlay.className = 'round-transition-overlay';
+        overlay.innerHTML = `
+            <div class="round-transition-content">
+                <div class="round-transition-icon">⚡</div>
+                <div class="round-transition-title" id="roundTransitionTitle">---</div>
+                <div class="round-transition-subtitle" id="roundTransitionSubtitle">---</div>
+                <div class="round-transition-loader"></div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    }
+    document.getElementById('roundTransitionTitle').textContent = data.roundTitle || '';
+    document.getElementById('roundTransitionSubtitle').textContent = data.roundDisplayName || '';
+    overlay.style.display = 'flex';
+}
+
+function hideRoundTransition() {
+    const overlay = document.getElementById('roundTransitionOverlay');
     if (overlay) overlay.style.display = 'none';
 }
 
@@ -152,7 +180,8 @@ socket.on('kicked', ({ message }) => { alert(message); showScreen('screen-home')
 function updateLobby(room) {
     document.getElementById('roomCode').textContent = room.code;
     const totalPlayers = Object.keys(room.players).length;
-    document.getElementById('playerCount').textContent = `${totalPlayers}/12`;
+    const isSolo = room.mode === '1v1' || room.mode === 'solo';
+    document.getElementById('playerCount').textContent = isSolo ? `${totalPlayers}/2` : `${totalPlayers}/12`;
 
     const playersList = document.getElementById('playersList');
     playersList.innerHTML = '';
@@ -175,7 +204,7 @@ function updateLobby(room) {
                 <div class="player-name">${player.name} ${isMe ? '(أنت)' : ''}</div>
                 <div class="player-status ready">${teamNames[player.team]} ${player.isLeader ? '👑' : ''}</div>
             </div>
-            ${isMe ? `
+            ${isMe && !isSolo ? `
                 <button class="team-switch-btn" onclick="switchTeam('${player.team === 'A' ? 'B' : 'A'}')"
                     style="background: ${teamColors[player.team === 'A' ? 'B' : 'A']}; color: white; border: none; padding: 6px 14px; border-radius: 10px; cursor: pointer; font-family: 'Tajawal'; font-size: 0.8rem; font-weight: 700;">
                     انتقال للفريق ${player.team === 'A' ? 'ب' : 'أ'}
@@ -186,7 +215,8 @@ function updateLobby(room) {
         playersList.appendChild(item);
     });
 
-    const progress = Math.min((totalPlayers / 12) * 100, 100);
+    const maxPlayers = isSolo ? 2 : 12;
+    const progress = Math.min((totalPlayers / maxPlayers) * 100, 100);
     document.getElementById('progressFill').style.width = progress + '%';
 
     const startBtn = document.getElementById('startBtn');
@@ -225,6 +255,7 @@ function startGame() {
 socket.on('gameStarted', (gameData) => {
     currentRound = gameData.round;
     currentQuestionIndex = gameData.questionIndex;
+    isSoloMode = gameData.isSolo || false;
     loadQuestion(gameData);
     showScreen('screen-game');
     startTimer(gameData.timer, 'timer');
@@ -233,15 +264,13 @@ socket.on('gameStarted', (gameData) => {
 function loadQuestion(gameData) {
     const question = gameData.question;
     document.getElementById('questionText').textContent = question.س;
-    document.getElementById('roundNumber').textContent = gameData.round;
+    document.getElementById('roundNumber').textContent = gameData.isSolo ? `${gameData.round}/15` : gameData.round;
 
-    const roundNames = {
-        1: 'الجولة الأولى - ثقافة عامة',
-        2: 'الجولة الثانية - سينما وأنمي',
-        3: 'الجولة الثالثة - تاريخ وجغرافيا',
-        4: 'الجولة الرابعة - مصارعة'
-    };
-    document.getElementById('roundTitle').textContent = roundNames[gameData.round] || `الجولة ${gameData.round}`;
+    if (gameData.isSolo) {
+        document.getElementById('roundTitle').textContent = `سؤال ${gameData.round} من 15`;
+    } else {
+        document.getElementById('roundTitle').textContent = gameData.roundTitle || `الجولة ${gameData.round}`;
+    }
 
     updateScoreBoard(gameData.players, gameData.mode, gameData.teamNames);
 }
@@ -252,7 +281,7 @@ function updateScoreBoard(players, mode, teamNames) {
     scoreBoard.innerHTML = '';
     const tn = teamNames || { A: 'الفريق أ', B: 'الفريق ب' };
 
-    if (mode === '1v1') {
+    if (mode === '1v1' || mode === 'solo') {
         Object.values(players).forEach(player => {
             const item = document.createElement('div');
             item.className = 'score-item';
@@ -289,16 +318,13 @@ socket.on('showOptions', (data) => {
 });
 
 function renderOptions(options) {
-    const question = currentRoom?.game?.questions?.[currentRound]?.[currentQuestionIndex];
-    if (question) document.getElementById('questionText2').textContent = question.س;
-
     const grid = document.getElementById('optionsGrid');
     grid.innerHTML = '';
 
     const letters = ['أ', 'ب', 'ج', 'د'];
     options.forEach((option, index) => {
         const btn = document.createElement('button');
-        btn.className = 'option-btn' + (option.isTrap ? ' trap-option' : '');
+        btn.className = 'option-btn';
         btn.onclick = function() { selectOption(this); };
         btn.innerHTML = `<span class="option-letter">${letters[index]}</span> ${option.text}`;
         grid.appendChild(btn);
@@ -307,7 +333,7 @@ function renderOptions(options) {
 
 function confirmOption() {
     const selected = document.querySelector('#optionsGrid .option-btn.selected');
-    const index = selected ? Array.from(document.querySelectorAll('#optionsGrid .option-btn')).indexOf(selected) : -1;
+    const index = selected ? Array.from(document.querySelectorAll('#optionsGrid .option-btn')).indexOf(selected) : 0;
     socket.emit('submitOption', { code: currentRoom.code, questionIndex: currentQuestionIndex, optionIndex: index });
     showWaiting();
 }
@@ -373,7 +399,7 @@ function showQuestionResults(data) {
         container.innerHTML += html;
     }
 
-    if (data.mode !== '1v1' && data.teamScores) {
+    if (!data.isSolo && data.mode !== '1v1' && data.teamScores) {
         let html = `<div class="results-section"><h3><span class="results-icon">📊</span> مجموع النقاط</h3><div class="results-list">`;
         for (const [team, score] of Object.entries(data.teamScores)) {
             html += `<div class="result-player team-score"><span class="result-name">${tn[team]}</span><span class="result-score">${score} نقطة</span></div>`;
@@ -393,7 +419,12 @@ socket.on('nextQuestion', (data) => {
     startTimer(data.timer, 'timer');
 });
 
+socket.on('showRoundTransition', (data) => {
+    showRoundTransition(data);
+});
+
 socket.on('startDrawRound', (data) => {
+    hideRoundTransition();
     hideWaiting();
     const myPlayer = data.players[socket.id];
     const isLeader = myPlayer && myPlayer.isLeader;
@@ -401,6 +432,7 @@ socket.on('startDrawRound', (data) => {
     document.getElementById('drawLeaderView').style.display = isLeader ? 'block' : 'none';
     document.getElementById('drawGuesserView').style.display = isLeader ? 'none' : 'block';
     document.getElementById('guessInputArea').style.display = isLeader ? 'none' : 'block';
+    document.getElementById('drawEndBtn').style.display = isLeader ? 'block' : 'none';
 
     if (isLeader && data.drawWords) {
         document.getElementById('drawWord').textContent = data.drawWords[socket.id] || '???';
@@ -421,6 +453,7 @@ socket.on('scoreUpdate', () => {
 });
 
 socket.on('startCodenamesRound', (data) => {
+    hideRoundTransition();
     hideWaiting();
     const myPlayer = data.players[socket.id];
     const isLeader = myPlayer && myPlayer.isLeader;
@@ -485,7 +518,17 @@ socket.on('codenameRevealed', (result) => {
     }
 
     if (result.winner) {
-        setTimeout(() => alert(`🏆 ${result.teamNames[result.winner]} فاز بكود نيمز! (+3 نقطة لكل لاعب)`), 500);
+        setTimeout(() => {
+            alert(`🏆 ${result.teamNames[result.winner]} فاز بكود نيمز! (+3 نقطة لكل لاعب)`);
+            const finishData = {
+                winner: result.winner,
+                teamScores: {},
+                players: {},
+                teamNames: result.teamNames,
+                mode: currentRoom?.mode
+            };
+            socket.emit('requestFinishGame', { code: currentRoom.code });
+        }, 500);
     }
 });
 
@@ -509,8 +552,7 @@ socket.on('startOvertime', (data) => {
 
 function submitOvertimeAnswer() {
     const selected = document.querySelector('#overtimeOptionsGrid .option-btn.selected');
-    if (!selected) { alert('الرجاء اختيار إجابة!'); return; }
-    const index = Array.from(document.querySelectorAll('#overtimeOptionsGrid .option-btn')).indexOf(selected);
+    const index = selected ? Array.from(document.querySelectorAll('#overtimeOptionsGrid .option-btn')).indexOf(selected) : 0;
     socket.emit('submitOvertimeAnswer', { code: currentRoom.code, optionIndex: index });
 }
 
@@ -610,6 +652,10 @@ function nextQuestion() {
     if (currentRoom) socket.emit('requestNextQuestion', { code: currentRoom.code });
 }
 
+function endDrawRound() {
+    if (currentRoom) socket.emit('endDrawRound', { code: currentRoom.code });
+}
+
 function restartGame() {
     currentRound = 1;
     currentQuestionIndex = 0;
@@ -627,10 +673,13 @@ function startTimer(seconds, elementId) {
             clearInterval(timer);
             const gameScreen = document.getElementById('screen-game');
             const optionsScreen = document.getElementById('screen-game-options');
+            const drawScreen = document.getElementById('screen-draw');
             if (gameScreen && gameScreen.classList.contains('active')) {
                 submitTrapAnswer();
             } else if (optionsScreen && optionsScreen.classList.contains('active')) {
                 confirmOption();
+            } else if (drawScreen && drawScreen.classList.contains('active')) {
+                endDrawRound();
             }
         }
     }, 1000);
