@@ -123,6 +123,22 @@
                 </div>
             </div>
 
+            <div id="teamPicker" class="team-picker" style="display: none;">
+                <p class="team-picker-title">اختر فريقك:</p>
+                <div class="team-picker-options">
+                    <div class="team-picker-option team-picker-a" id="pickTeamA" onclick="switchTeam('A')">
+                        <span class="team-picker-icon">🅰️</span>
+                        <span class="team-picker-label" id="pickTeamALabel">الفريق أ</span>
+                        <span class="team-picker-count" id="pickTeamACount">0 لاعبين</span>
+                    </div>
+                    <div class="team-picker-option team-picker-b" id="pickTeamB" onclick="switchTeam('B')">
+                        <span class="team-picker-icon">🅱️</span>
+                        <span class="team-picker-label" id="pickTeamBLabel">الفريق ب</span>
+                        <span class="team-picker-count" id="pickTeamBCount">0 لاعبين</span>
+                    </div>
+                </div>
+            </div>
+
             <div id="soloSection" style="display: none;">
                 <div class="players-list" id="playersListSolo"></div>
             </div>

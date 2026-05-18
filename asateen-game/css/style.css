@@ -196,6 +196,48 @@ body {
     background: var(--glass); border-radius: 8px; border: 1px solid var(--glass-border);
 }
 
+.team-picker {
+    background: var(--glass); border: 1px solid var(--glass-border);
+    border-radius: 14px; padding: 16px; margin-bottom: 16px;
+}
+
+.team-picker-title {
+    text-align: center; font-size: 0.95rem; font-weight: 700;
+    color: var(--gold); margin-bottom: 12px;
+}
+
+.team-picker-options {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+}
+
+.team-picker-option {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 16px 12px; border-radius: 12px; cursor: pointer;
+    border: 2px solid var(--glass-border); transition: all 0.3s ease;
+}
+
+.team-picker-option:hover { transform: scale(1.03); }
+
+.team-picker-a {
+    background: rgba(231, 76, 60, 0.1); border-color: rgba(231, 76, 60, 0.3);
+}
+.team-picker-a:hover, .team-picker-a.active {
+    border-color: #E74C3C; background: rgba(231, 76, 60, 0.2);
+    box-shadow: 0 0 15px rgba(231, 76, 60, 0.3);
+}
+
+.team-picker-b {
+    background: rgba(52, 152, 219, 0.1); border-color: rgba(52, 152, 219, 0.3);
+}
+.team-picker-b:hover, .team-picker-b.active {
+    border-color: #3498DB; background: rgba(52, 152, 219, 0.2);
+    box-shadow: 0 0 15px rgba(52, 152, 219, 0.3);
+}
+
+.team-picker-icon { font-size: 1.8rem; }
+.team-picker-label { font-size: 0.95rem; font-weight: 700; color: #fff; }
+.team-picker-count { font-size: 0.75rem; color: #B8A9C9; }
+
 .lobby-container { max-width: 600px; margin: 0 auto; }
 
 .room-code {
@@ -637,6 +679,13 @@ body {
     .mode-option-desc { font-size: 0.65rem; }
     .mode-badge { padding: 6px 12px; font-size: 0.75rem; }
     .team-section-title { font-size: 0.8rem; padding: 4px 8px; }
+    .team-picker { padding: 12px; }
+    .team-picker-title { font-size: 0.85rem; margin-bottom: 8px; }
+    .team-picker-options { gap: 8px; }
+    .team-picker-option { padding: 12px 8px; }
+    .team-picker-icon { font-size: 1.4rem; }
+    .team-picker-label { font-size: 0.85rem; }
+    .team-picker-count { font-size: 0.65rem; }
     .card { padding: 14px; margin-bottom: 12px; border-radius: 12px; }
     .room-code { font-size: 1.4rem; padding: 12px; letter-spacing: 5px; }
     .player-item { padding: 8px 10px; gap: 6px; }

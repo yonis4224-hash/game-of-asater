@@ -207,15 +207,18 @@ function updateLobby(room) {
 
     const teamNamesSection = document.getElementById('teamNamesSection');
     const teamSections = document.getElementById('teamSections');
+    const teamPicker = document.getElementById('teamPicker');
     const soloSection = document.getElementById('soloSection');
 
     if (isSolo) {
         teamNamesSection.style.display = 'none';
         teamSections.style.display = 'none';
+        teamPicker.style.display = 'none';
         soloSection.style.display = 'block';
     } else {
         teamNamesSection.style.display = 'block';
         teamSections.style.display = 'block';
+        teamPicker.style.display = 'block';
         soloSection.style.display = 'none';
     }
 
@@ -226,18 +229,39 @@ function updateLobby(room) {
     document.getElementById('teamATitle').textContent = `🅰️ ${teamNames.A}`;
     document.getElementById('teamBTitle').textContent = `🅱️ ${teamNames.B}`;
 
-    if (isSolo) {
-        const soloList = document.getElementById('playersListSolo');
-        soloList.innerHTML = '';
+    document.getElementById('pickTeamALabel').textContent = teamNames.A;
+    document.getElementById('pickTeamBLabel').textContent = teamNames.B;
 
-        Object.values(room.players).forEach((player) => {
-            const item = document.createElement('div');
-            item.className = 'player-item';
+    const myPlayer = room.players[socket.id];
+    const myTeam = myPlayer ? myPlayer.team : 'A';
+
+    const pickA = document.getElementById('pickTeamA');
+    const pickB = document.getElementById('pickTeamB');
+    pickA.classList.toggle('active', myTeam === 'A');
+    pickB.classList.toggle('active', myTeam === 'B');
+
+    let countA = 0;
+    let countB = 0;
+
+    const listA = document.getElementById('playersListA');
+    const listB = document.getElementById('playersListB');
+    const soloList = document.getElementById('playersListSolo');
+    listA.innerHTML = '';
+    listB.innerHTML = '';
+    if (soloList) soloList.innerHTML = '';
+
+    Object.values(room.players).forEach((player) => {
+        if (player.team === 'A') countA++;
+        if (player.team === 'B') countB++;
+
+        const item = document.createElement('div');
+        item.className = 'player-item';
+
+        const isMe = player.socketId === socket.id;
+
+        if (isSolo) {
             item.style.borderLeft = `4px solid var(--gold)`;
             item.style.background = 'var(--glass)';
-
-            const isMe = player.socketId === socket.id;
-
             item.innerHTML = `
                 ${getAvatarHTML(player.avatar)}
                 <div class="player-info">
@@ -247,20 +271,9 @@ function updateLobby(room) {
                 ${isHost && !isMe ? `<button class="kick-btn" onclick="kickPlayer('${player.socketId}')"><i class="fas fa-times"></i></button>` : ''}
             `;
             soloList.appendChild(item);
-        });
-    } else {
-        const listA = document.getElementById('playersListA');
-        const listB = document.getElementById('playersListB');
-        listA.innerHTML = '';
-        listB.innerHTML = '';
-
-        Object.values(room.players).forEach((player) => {
-            const item = document.createElement('div');
-            item.className = 'player-item';
+        } else {
             item.style.borderLeft = `4px solid ${teamColors[player.team]}`;
             item.style.background = teamBgColors[player.team];
-
-            const isMe = player.socketId === socket.id;
 
             item.innerHTML = `
                 ${getAvatarHTML(player.avatar)}
@@ -268,11 +281,6 @@ function updateLobby(room) {
                     <div class="player-name">${player.name} ${isMe ? '(أنت)' : ''}</div>
                     <div class="player-status ready">${teamNames[player.team]} ${player.isLeader ? '👑' : ''}</div>
                 </div>
-                ${isMe ? `
-                    <button class="team-switch-btn" onclick="switchTeam('${player.team === 'A' ? 'B' : 'A'}')">
-                        انتقال
-                    </button>
-                ` : ''}
                 ${isHost && !isMe ? `<button class="kick-btn" onclick="kickPlayer('${player.socketId}')"><i class="fas fa-times"></i></button>` : ''}
             `;
 
@@ -281,8 +289,11 @@ function updateLobby(room) {
             } else {
                 listB.appendChild(item);
             }
-        });
-    }
+        }
+    });
+
+    document.getElementById('pickTeamACount').textContent = `${countA} لاعبين`;
+    document.getElementById('pickTeamBCount').textContent = `${countB} لاعبين`;
 
     const progress = Math.min((totalPlayers / maxPlayers) * 100, 100);
     document.getElementById('progressFill').style.width = progress + '%';
