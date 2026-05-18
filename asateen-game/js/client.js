@@ -28,10 +28,10 @@ const avatarFiles = [
     'جيوكريس.jpeg',
     'Art by @gyo14keres on X.jpeg',
     'cute DP.jpeg',
-    'Mesut Ozil Arsenal.jpeg',
+    'Mesut Özil  #YaGunnersYa   _ #COYG  #Arsenal.jpeg',
     'non.jpeg',
     'trajes personnage.jpeg',
-    'Viktor Gyokeres Celebration.jpeg',
+    'Viktor Gyokeres Celebration 🎉.jpeg',
     'viktor gyokeres.jpeg'
 ];
 
@@ -75,25 +75,12 @@ function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const screen = document.getElementById(screenId);
     if (screen) screen.classList.add('active');
-    hideWaiting();
     hideRoundTransition();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function showWaiting() {
-    let overlay = document.getElementById('waitingOverlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'waitingOverlay';
-        overlay.className = 'waiting-overlay';
-        overlay.innerHTML = `<div class="waiting-spinner"></div><div class="waiting-text">في انتظار اللاعبين الآخرين...</div>`;
-        document.body.appendChild(overlay);
-    }
-    overlay.style.display = 'flex';
-}
-
-function hideWaiting() {
-    const overlay = document.getElementById('waitingOverlay');
+function hideRoundTransition() {
+    const overlay = document.getElementById('roundTransitionOverlay');
     if (overlay) overlay.style.display = 'none';
 }
 
@@ -116,11 +103,6 @@ function showRoundTransition(data) {
     document.getElementById('roundTransitionTitle').textContent = data.roundTitle || '';
     document.getElementById('roundTransitionSubtitle').textContent = data.roundDisplayName || '';
     overlay.style.display = 'flex';
-}
-
-function hideRoundTransition() {
-    const overlay = document.getElementById('roundTransitionOverlay');
-    if (overlay) overlay.style.display = 'none';
 }
 
 function selectGameMode(mode) {
@@ -378,11 +360,19 @@ function submitTrapAnswer() {
     const answer = document.getElementById('answerInput').value.trim();
     socket.emit('submitTrapAnswer', { code: currentRoom.code, questionIndex: currentQuestionIndex, answer });
     document.getElementById('answerInput').value = '';
-    showWaiting();
+    document.getElementById('answerInput').disabled = true;
+
+    const submitBtn = document.querySelector('#screen-game .btn-primary.btn-block');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-clock"></i> في انتظار اللاعبين...';
+    }
 }
 
 socket.on('showOptions', (data) => {
-    hideWaiting();
+    document.getElementById('questionText2').textContent = document.getElementById('questionText').textContent;
+    document.getElementById('roundTitle2').textContent = document.getElementById('roundTitle').textContent;
+    document.getElementById('roundNumber2').textContent = document.getElementById('roundNumber').textContent;
     renderOptions(data.options);
     renderConfirmedPlayers(data.confirmedPlayers || []);
     showScreen('screen-game-options');
@@ -403,11 +393,42 @@ function renderOptions(options) {
     });
 }
 
+socket.on('nextQuestion', (data) => {
+    currentRound = data.round;
+    currentQuestionIndex = data.questionIndex;
+    loadQuestion(data);
+    showScreen('screen-game');
+    resetSubmitButton();
+    startTimer(data.timer, 'timer');
+});
+
+function resetSubmitButton() {
+    const submitBtn = document.querySelector('#screen-game .btn-primary.btn-block');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> تأكيد الإجابة';
+    }
+    const answerInput = document.getElementById('answerInput');
+    if (answerInput) answerInput.disabled = false;
+
+    const confirmBtn = document.querySelector('#screen-game-options .btn-primary.btn-block');
+    if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> تأكيد الاختيار';
+    }
+}
+}
+
 function confirmOption() {
     const selected = document.querySelector('#optionsGrid .option-btn.selected');
     const index = selected ? Array.from(document.querySelectorAll('#optionsGrid .option-btn')).indexOf(selected) : 0;
     socket.emit('submitOption', { code: currentRoom.code, questionIndex: currentQuestionIndex, optionIndex: index });
-    showWaiting();
+
+    const confirmBtn = document.querySelector('#screen-game-options .btn-primary.btn-block');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-clock"></i> في انتظار اللاعبين...';
+    }
 }
 
 function renderConfirmedPlayers(confirmedPlayers) {

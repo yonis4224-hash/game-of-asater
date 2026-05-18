@@ -82,7 +82,12 @@ function handleNextPhase(code) {
 
         addTimer(code, () => {
             const drawData = startDrawRound(code);
-            if (drawData) io.to(code).emit('startDrawRound', drawData);
+            if (drawData) {
+                io.to(code).emit('startDrawRound', drawData);
+            } else {
+                const finishData = finishGame(code);
+                io.to(code).emit('gameFinished', finishData);
+            }
         }, 5000);
         return;
     }
@@ -129,7 +134,7 @@ io.on('connection', (socket) => {
     socket.on('createRoom', ({ playerName, avatar, mode }) => {
         try {
             const room = createRoom(socket.id, playerName, mode);
-            if (avatar) room.players[socket.id].avatar = avatar;
+            if (avatar !== undefined && avatar !== null) room.players[socket.id].avatar = avatar;
             socket.join(room.code);
             socket.emit('roomCreated', room);
             console.log(`Room created: ${room.code} by ${playerName} (mode: ${room.mode})`);
@@ -201,22 +206,25 @@ io.on('connection', (socket) => {
         const room = getRoom(code);
         if (!room) return;
         const result = submitTrapAnswer(code, socket.id, questionIndex, answer);
-        if (result && result.allSubmitted) {
-            const teamOptionsData = buildOptions(code, questionIndex);
-            if (teamOptionsData) {
-                const { teamOptions, confirmedPlayers } = teamOptionsData;
-                for (const [team, data] of Object.entries(teamOptions)) {
-                    const teamPlayers = Object.values(room.players).filter(p => p.team === team);
-                    for (const player of teamPlayers) {
-                        io.to(player.socketId).emit('showOptions', { options: data.options, confirmedPlayers });
+        if (result) {
+            io.to(code).emit('trapSubmitted', { socketId: socket.id });
+            if (result.allSubmitted) {
+                const teamOptionsData = buildOptions(code, questionIndex);
+                if (teamOptionsData) {
+                    const { teamOptions, confirmedPlayers } = teamOptionsData;
+                    for (const [team, data] of Object.entries(teamOptions)) {
+                        const teamPlayers = Object.values(room.players).filter(p => p.team === team);
+                        for (const player of teamPlayers) {
+                            io.to(player.socketId).emit('showOptions', { options: data.options, confirmedPlayers });
+                        }
                     }
-                }
 
-                addTimer(code, () => {
-                    autoConfirmOptionPlayers(code);
-                    const results = calculateQuestionResults(code, questionIndex);
-                    if (results) io.to(code).emit('questionResults', results);
-                }, 10000);
+                    addTimer(code, () => {
+                        autoConfirmOptionPlayers(code);
+                        const results = calculateQuestionResults(code, questionIndex);
+                        if (results) io.to(code).emit('questionResults', results);
+                    }, 10000);
+                }
             }
         }
     });

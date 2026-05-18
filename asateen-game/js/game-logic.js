@@ -92,11 +92,13 @@ function joinRoom(code, socketId, playerName, avatar) {
         team = teamA <= teamB ? 'A' : 'B';
     }
 
+    const isLeader = !isSolo && !Object.values(room.players).some(p => p.team === team && p.isLeader);
+
     room.players[socketId] = {
         socketId,
         name: playerName,
         team: team,
-        isLeader: false,
+        isLeader: isLeader,
         score: 0,
         ready: true,
         trapAnswer: null,
@@ -117,12 +119,22 @@ function switchTeam(code, socketId, newTeam) {
 
     const player = room.players[socketId];
     if (newTeam !== 'A' && newTeam !== 'B') return null;
+    if (player.team === newTeam) return room;
 
+    const oldTeam = player.team;
     player.team = newTeam;
 
-    if (newTeam === 'A') {
-        const hasLeaderA = Object.values(room.players).some(p => p.isLeader && p.team === 'A');
-        if (!hasLeaderA) player.isLeader = true;
+    if (player.isLeader) {
+        player.isLeader = false;
+        const oldTeamPlayers = Object.values(room.players).filter(p => p.team === oldTeam);
+        if (oldTeamPlayers.length > 0) {
+            oldTeamPlayers[0].isLeader = true;
+        }
+    }
+
+    const newTeamHasLeader = Object.values(room.players).some(p => p.team === newTeam && p.isLeader);
+    if (!newTeamHasLeader) {
+        player.isLeader = true;
     }
 
     return room;
@@ -136,8 +148,18 @@ function kickPlayer(code, socketId, targetSocketId) {
     if (room.status !== 'waiting') return { success: false, message: 'لا يمكن الطرد أثناء اللعب' };
 
     if (room.players[targetSocketId]) {
+        const wasLeader = room.players[targetSocketId].isLeader;
+        const playerTeam = room.players[targetSocketId].team;
         delete room.players[targetSocketId];
         delete room.scores[targetSocketId];
+
+        if (wasLeader && room.mode !== 'solo') {
+            const teamPlayers = Object.values(room.players).filter(p => p.team === playerTeam);
+            if (teamPlayers.length > 0) {
+                teamPlayers[0].isLeader = true;
+            }
+        }
+
         return { success: true, room };
     }
     return { success: false, message: 'اللاعب غير موجود' };
@@ -751,8 +773,18 @@ function disconnectPlayer(socketId) {
     for (const code in rooms) {
         const room = rooms[code];
         if (room.players[socketId]) {
+            const wasLeader = room.players[socketId].isLeader;
+            const playerTeam = room.players[socketId].team;
             delete room.players[socketId];
             delete room.scores[socketId];
+
+            if (wasLeader && room.mode !== 'solo') {
+                const teamPlayers = Object.values(room.players).filter(p => p.team === playerTeam);
+                if (teamPlayers.length > 0) {
+                    teamPlayers[0].isLeader = true;
+                }
+            }
+
             if (Object.keys(room.players).length === 0) {
                 delete rooms[code];
             } else {
