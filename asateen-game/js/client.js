@@ -218,7 +218,6 @@ function updateLobby(room) {
 
         const item = document.createElement('div');
         item.className = 'player-item';
-
         const isMe = player.socketId === socket.id;
 
         if (isSolo) {
@@ -236,7 +235,6 @@ function updateLobby(room) {
         } else {
             item.style.borderLeft = `4px solid ${teamColors[player.team]}`;
             item.style.background = teamBgColors[player.team];
-
             item.innerHTML = `
                 ${getAvatarHTML(player.avatar)}
                 <div class="player-info">
@@ -245,7 +243,6 @@ function updateLobby(room) {
                 </div>
                 ${isHost && !isMe ? `<button class="kick-btn" onclick="kickPlayer('${player.socketId}')"><i class="fas fa-times"></i></button>` : ''}
             `;
-
             if (player.team === 'A') {
                 listA.appendChild(item);
             } else {
@@ -307,6 +304,7 @@ function loadQuestion(gameData) {
     document.getElementById('roundNumber').textContent = gameData.isSolo ? `${gameData.round}/15` : gameData.round;
     document.getElementById('roundTitle').textContent = gameData.roundTitle || `الجولة ${gameData.round}`;
     updateScoreBoard(gameData.players, gameData.mode, gameData.teamNames);
+    resetSubmitButton();
 }
 
 function updateScoreBoard(players, mode, teamNames) {
@@ -362,7 +360,6 @@ socket.on('showOptions', (data) => {
 function renderOptions(options) {
     const grid = document.getElementById('optionsGrid');
     grid.innerHTML = '';
-
     const letters = ['أ', 'ب', 'ج', 'د'];
     options.forEach((option, index) => {
         const btn = document.createElement('button');
@@ -371,31 +368,6 @@ function renderOptions(options) {
         btn.innerHTML = `<span class="option-letter">${letters[index]}</span> ${option.text}`;
         grid.appendChild(btn);
     });
-}
-
-socket.on('nextQuestion', (data) => {
-    currentRound = data.round;
-    currentQuestionIndex = data.questionIndex;
-    loadQuestion(data);
-    showScreen('screen-game');
-    resetSubmitButton();
-    startTimer(data.timer, 'timer');
-});
-
-function resetSubmitButton() {
-    const submitBtn = document.querySelector('#screen-game .btn-primary.btn-block');
-    if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> تأكيد الإجابة';
-    }
-    const answerInput = document.getElementById('answerInput');
-    if (answerInput) answerInput.disabled = false;
-
-    const confirmBtn = document.querySelector('#screen-game-options .btn-primary.btn-block');
-    if (confirmBtn) {
-        confirmBtn.disabled = false;
-        confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> تأكيد الاختيار';
-    }
 }
 
 function confirmOption() {
@@ -414,7 +386,6 @@ function renderConfirmedPlayers(confirmedPlayers) {
     const container = document.getElementById('confirmedPlayersList');
     if (!container) return;
     container.innerHTML = '';
-
     confirmedPlayers.forEach(player => {
         const div = document.createElement('div');
         div.className = 'confirmed-player' + (player.confirmed ? ' confirmed' : '');
@@ -480,6 +451,30 @@ function showQuestionResults(data) {
     }
 
     showScreen('screen-question-results');
+}
+
+socket.on('nextQuestion', (data) => {
+    currentRound = data.round;
+    currentQuestionIndex = data.questionIndex;
+    loadQuestion(data);
+    showScreen('screen-game');
+    startTimer(data.timer, 'timer');
+});
+
+function resetSubmitButton() {
+    const submitBtn = document.querySelector('#screen-game .btn-primary.btn-block');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> تأكيد الإجابة';
+    }
+    const answerInput = document.getElementById('answerInput');
+    if (answerInput) answerInput.disabled = false;
+
+    const confirmBtn = document.querySelector('#screen-game-options .btn-primary.btn-block');
+    if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> تأكيد الاختيار';
+    }
 }
 
 socket.on('showRoundTransition', (data) => {
@@ -586,7 +581,6 @@ function showFinalResults(data) {
     const tn = data.teamNames || { A: 'الفريق أ', B: 'الفريق ب' };
     const finalScores = document.getElementById('finalScores');
     finalScores.innerHTML = '';
-
     const mode = data.mode || 'team';
 
     if (mode === 'solo') {
@@ -610,10 +604,8 @@ function showFinalResults(data) {
     } else {
         const teamAPlayers = players.filter(p => p.team === 'A').sort((a, b) => b.score - a.score);
         const teamBPlayers = players.filter(p => p.team === 'B').sort((a, b) => b.score - a.score);
-
         const scoreA = teamAPlayers.reduce((sum, p) => sum + p.score, 0);
         const scoreB = teamBPlayers.reduce((sum, p) => sum + p.score, 0);
-
         const winnerTeam = scoreA >= scoreB ? 'A' : 'B';
 
         const teamHeader = document.createElement('div');
