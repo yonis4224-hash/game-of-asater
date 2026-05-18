@@ -397,7 +397,6 @@ function resetSubmitButton() {
         confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> تأكيد الاختيار';
     }
 }
-}
 
 function confirmOption() {
     const selected = document.querySelector('#optionsGrid .option-btn.selected');
@@ -434,7 +433,6 @@ socket.on('confirmedPlayersUpdate', (data) => {
 });
 
 socket.on('questionResults', (data) => {
-    hideWaiting();
     showQuestionResults(data);
 });
 
@@ -484,21 +482,12 @@ function showQuestionResults(data) {
     showScreen('screen-question-results');
 }
 
-socket.on('nextQuestion', (data) => {
-    currentRound = data.round;
-    currentQuestionIndex = data.questionIndex;
-    loadQuestion(data);
-    showScreen('screen-game');
-    startTimer(data.timer, 'timer');
-});
-
 socket.on('showRoundTransition', (data) => {
     showRoundTransition(data);
 });
 
 socket.on('startDrawRound', (data) => {
     hideRoundTransition();
-    hideWaiting();
     const myPlayer = data.players[socket.id];
     const isLeader = myPlayer && myPlayer.isLeader;
 
@@ -527,7 +516,6 @@ socket.on('scoreUpdate', () => {
 
 socket.on('startCodenamesRound', (data) => {
     hideRoundTransition();
-    hideWaiting();
     const myPlayer = data.players[socket.id];
     const isLeader = myPlayer && myPlayer.isLeader;
 
