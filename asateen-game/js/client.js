@@ -275,7 +275,6 @@ function updateScoreBoard(players, mode, teamNames) {
 
 function submitTrapAnswer() {
     const answer = document.getElementById('answerInput').value.trim();
-    if (!answer) { alert('الرجاء كتابة إجابة!'); return; }
     socket.emit('submitTrapAnswer', { code: currentRoom.code, questionIndex: currentQuestionIndex, answer });
     document.getElementById('answerInput').value = '';
     showWaiting();
@@ -284,8 +283,9 @@ function submitTrapAnswer() {
 socket.on('showOptions', (data) => {
     hideWaiting();
     renderOptions(data.options);
+    renderConfirmedPlayers(data.confirmedPlayers || []);
     showScreen('screen-game-options');
-    startTimer(15, 'timer2');
+    startTimer(10, 'timer2');
 });
 
 function renderOptions(options) {
@@ -307,11 +307,32 @@ function renderOptions(options) {
 
 function confirmOption() {
     const selected = document.querySelector('#optionsGrid .option-btn.selected');
-    if (!selected) { alert('الرجاء اختيار إجابة!'); return; }
-    const index = Array.from(document.querySelectorAll('#optionsGrid .option-btn')).indexOf(selected);
+    const index = selected ? Array.from(document.querySelectorAll('#optionsGrid .option-btn')).indexOf(selected) : -1;
     socket.emit('submitOption', { code: currentRoom.code, questionIndex: currentQuestionIndex, optionIndex: index });
     showWaiting();
 }
+
+function renderConfirmedPlayers(confirmedPlayers) {
+    const container = document.getElementById('confirmedPlayersList');
+    if (!container) return;
+    container.innerHTML = '';
+
+    confirmedPlayers.forEach(player => {
+        const div = document.createElement('div');
+        div.className = 'confirmed-player' + (player.confirmed ? ' confirmed' : '');
+        const file = avatarFiles[player.avatar] || avatarFiles[0];
+        div.innerHTML = `
+            <img src="avatars/${encodeURIComponent(file)}" alt="${player.name}" class="confirmed-avatar">
+            <span class="confirmed-name">${player.name}</span>
+            ${player.confirmed ? '<i class="fas fa-check-circle confirmed-check"></i>' : ''}
+        `;
+        container.appendChild(div);
+    });
+}
+
+socket.on('confirmedPlayersUpdate', (data) => {
+    renderConfirmedPlayers(data.confirmedPlayers);
+});
 
 socket.on('questionResults', (data) => {
     hideWaiting();
@@ -324,9 +345,9 @@ function showQuestionResults(data) {
     const tn = data.teamNames || { A: 'الفريق أ', B: 'الفريق ب' };
 
     if (data.correctPlayers.length > 0) {
-        let html = `<div class="results-section"><h3><span class="results-icon correct">✅</span> إجابات صحيحة (+100 نقطة)</h3><div class="results-list">`;
+        let html = `<div class="results-section"><h3><span class="results-icon correct">✅</span> إجابات صحيحة (+3 نقاط)</h3><div class="results-list">`;
         for (const p of data.correctPlayers) {
-            html += `<div class="result-player correct"><span class="result-name">${p.name}</span><span class="result-team">${tn[p.team]}</span><span class="result-answer" style="color: #2ECC71;">"${p.selectedAnswer}"</span><span class="result-score">+100</span></div>`;
+            html += `<div class="result-player correct"><span class="result-name">${p.name}</span><span class="result-team">${tn[p.team]}</span><span class="result-answer" style="color: #2ECC71;">"${p.selectedAnswer}"</span><span class="result-score">+3</span></div>`;
         }
         html += `</div></div>`;
         container.innerHTML += html;
@@ -344,9 +365,9 @@ function showQuestionResults(data) {
 
     const trapEntries = Object.entries(data.trapInfo);
     if (trapEntries.length > 0) {
-        let html = `<div class="results-section"><h3><span class="results-icon trap">🎭</span> الفخاخ الناجحة (+50 نقطة)</h3><div class="results-list">`;
+        let html = `<div class="results-section"><h3><span class="results-icon trap">🎭</span> الفخاخ الناجحة (+1 نقطة)</h3><div class="results-list">`;
         for (const [name, count] of trapEntries) {
-            html += `<div class="result-player trap"><span class="result-name">${name}</span><span class="result-trap-count">تم اختيار إجابته ${count} مرة</span><span class="result-score">+${count * 50}</span></div>`;
+            html += `<div class="result-player trap"><span class="result-name">${name}</span><span class="result-trap-count">تم اختيار إجابته ${count} مرة</span><span class="result-score">+${count}</span></div>`;
         }
         html += `</div></div>`;
         container.innerHTML += html;
@@ -392,7 +413,7 @@ socket.on('startDrawRound', (data) => {
 });
 
 socket.on('drawGuessResult', (result) => {
-    if (result.isCorrect) alert('✅ تخمين صحيح! +100 نقطة');
+    if (result.isCorrect) alert('✅ تخمين صحيح! +3 نقاط');
 });
 
 socket.on('scoreUpdate', () => {
@@ -464,7 +485,7 @@ socket.on('codenameRevealed', (result) => {
     }
 
     if (result.winner) {
-        setTimeout(() => alert(`🏆 ${result.teamNames[result.winner]} فاز بكود نيمز! (+500 نقطة)`), 500);
+        setTimeout(() => alert(`🏆 ${result.teamNames[result.winner]} فاز بكود نيمز! (+3 نقطة لكل لاعب)`), 500);
     }
 });
 
@@ -494,7 +515,7 @@ function submitOvertimeAnswer() {
 }
 
 socket.on('overtimeResult', (result) => {
-    if (result.isCorrect) alert('✅ إجابة صحيحة! +200 نقطة');
+    if (result.isCorrect) alert('✅ إجابة صحيحة! +3 نقاط');
     else alert('❌ إجابة خاطئة!');
 });
 
@@ -506,21 +527,79 @@ function showFinalResults(data) {
     const finalScores = document.getElementById('finalScores');
     finalScores.innerHTML = '';
 
-    const rankClasses = ['gold', 'silver', 'bronze'];
-    players.forEach((player, index) => {
-        const item = document.createElement('div');
-        item.className = `final-score-item ${index === 0 ? 'first' : ''}`;
-        item.innerHTML = `
-            ${getAvatarHTML(player.avatar)}
-            <div class="player-info">
-                <div class="player-name">${player.name}</div>
-                <div class="player-status">${tn[player.team]} - ${player.score.toLocaleString()} نقطة</div>
-            </div>
-            <div class="rank ${rankClasses[index] || ''}">${index + 1}</div>
-            ${index === 0 ? '<i class="fas fa-crown" style="color: var(--gold); font-size: 1.5rem;"></i>' : ''}
+    const mode = data.mode || 'team';
+
+    if (mode === '1v1' || mode === 'solo') {
+        const rankClasses = ['gold', 'silver', 'bronze'];
+        const rankLabels = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن'];
+        players.forEach((player, index) => {
+            const item = document.createElement('div');
+            item.className = `final-score-item ${index === 0 ? 'first' : ''}`;
+            item.innerHTML = `
+                <div class="rank-badge ${rankClasses[index] || 'default'}">${index + 1}</div>
+                ${getAvatarHTML(player.avatar)}
+                <div class="player-info">
+                    <div class="player-name">${player.name}</div>
+                    <div class="player-status">${player.score.toLocaleString()} نقطة</div>
+                </div>
+                <div class="rank-label">${rankLabels[index] || (index + 1) + 'th'}</div>
+                ${index === 0 ? '<i class="fas fa-crown crown-icon"></i>' : ''}
+            `;
+            finalScores.appendChild(item);
+        });
+    } else {
+        const teamAPlayers = players.filter(p => p.team === 'A').sort((a, b) => b.score - a.score);
+        const teamBPlayers = players.filter(p => p.team === 'B').sort((a, b) => b.score - a.score);
+
+        const scoreA = teamAPlayers.reduce((sum, p) => sum + p.score, 0);
+        const scoreB = teamBPlayers.reduce((sum, p) => sum + p.score, 0);
+
+        const winnerTeam = scoreA >= scoreB ? 'A' : 'B';
+
+        const teamHeader = document.createElement('div');
+        teamHeader.className = `team-result-header team-${winnerTeam}-winner`;
+        teamHeader.innerHTML = `
+            <div class="team-result-name">🏆 ${tn[winnerTeam]}</div>
+            <div class="team-result-score">${scoreA >= scoreB ? scoreA : scoreB} نقطة</div>
         `;
-        finalScores.appendChild(item);
-    });
+        finalScores.appendChild(teamHeader);
+
+        const winnerPlayers = winnerTeam === 'A' ? teamAPlayers : teamBPlayers;
+        winnerPlayers.forEach((player, index) => {
+            const item = document.createElement('div');
+            item.className = 'final-score-item team-player winner-team-player';
+            item.innerHTML = `
+                <div class="player-rank">#${index + 1}</div>
+                ${getAvatarHTML(player.avatar)}
+                <div class="player-info">
+                    <div class="player-name">${player.name}</div>
+                    <div class="player-status">${player.score.toLocaleString()} نقطة</div>
+                </div>
+            `;
+            finalScores.appendChild(item);
+        });
+
+        const divider = document.createElement('div');
+        divider.className = 'team-divider';
+        divider.innerHTML = '<span>⚔️</span>';
+        finalScores.appendChild(divider);
+
+        const loserTeam = winnerTeam === 'A' ? 'B' : 'A';
+        const loserPlayers = loserTeam === 'A' ? teamAPlayers : teamBPlayers;
+        loserPlayers.forEach((player, index) => {
+            const item = document.createElement('div');
+            item.className = 'final-score-item team-player loser-team-player';
+            item.innerHTML = `
+                <div class="player-rank">#${index + 1}</div>
+                ${getAvatarHTML(player.avatar)}
+                <div class="player-info">
+                    <div class="player-name">${player.name}</div>
+                    <div class="player-status">${player.score.toLocaleString()} نقطة</div>
+                </div>
+            `;
+            finalScores.appendChild(item);
+        });
+    }
 
     document.getElementById('winnerName').textContent = data.winner ? tn[data.winner] : 'تعادل';
     document.getElementById('winnerScore').textContent = `الفائز بـ ${players[0]?.score.toLocaleString() || 0} نقطة!`;
@@ -547,9 +626,11 @@ function startTimer(seconds, elementId) {
         if (timeLeft <= 0) {
             clearInterval(timer);
             const gameScreen = document.getElementById('screen-game');
+            const optionsScreen = document.getElementById('screen-game-options');
             if (gameScreen && gameScreen.classList.contains('active')) {
-                const answer = document.getElementById('answerInput').value.trim();
-                if (answer) submitTrapAnswer();
+                submitTrapAnswer();
+            } else if (optionsScreen && optionsScreen.classList.contains('active')) {
+                confirmOption();
             }
         }
     }, 1000);
@@ -561,7 +642,7 @@ function updateTimerDisplay(elementId) {
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
     timerEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    timerEl.classList.toggle('warning', timeLeft <= 10);
+    timerEl.classList.toggle('warning', timeLeft <= 5);
 }
 
 let drawTool = 'brush';

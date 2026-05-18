@@ -204,7 +204,7 @@ function startGame(code) {
         currentQuestionIndex: 0,
         totalRounds,
         questionsPerRound,
-        timer: 30,
+        timer: 10,
         questions: {},
         teamOptions: null,
         drawWord: null,
@@ -223,6 +223,7 @@ function startGame(code) {
         room.players[id].score = 0;
         room.players[id].trapAnswer = null;
         room.players[id].selectedOption = null;
+        room.players[id].hasConfirmed = false;
         room.scores[id] = 0;
     });
 
@@ -231,7 +232,7 @@ function startGame(code) {
         round: 1,
         questionIndex: 0,
         question: room.game.questions[1][0],
-        timer: 30,
+        timer: 10,
         players: room.players,
         mode: room.mode,
         teamNames: room.teamNames
@@ -252,14 +253,22 @@ function submitTrapAnswer(code, socketId, questionIndex, answer) {
 
 function submitOption(code, socketId, questionIndex, optionIndex) {
     const room = rooms[code];
-    if (!room || !room.players[socketId] || !room.game) return null;
+    if (!room || !room.game) return null;
 
     room.players[socketId].selectedOption = optionIndex;
+    room.players[socketId].hasConfirmed = true;
 
     const submittedCount = Object.values(room.players).filter(p => p.selectedOption !== null).length;
     const totalCount = Object.keys(room.players).length;
 
-    return { submittedCount, totalCount, allSubmitted: submittedCount === totalCount };
+    const confirmedPlayers = Object.values(room.players).map(p => ({
+        socketId: p.socketId,
+        name: p.name,
+        avatar: p.avatar,
+        confirmed: p.hasConfirmed === true
+    }));
+
+    return { submittedCount, totalCount, allSubmitted: submittedCount === totalCount, confirmedPlayers };
 }
 
 function buildOptions(code, questionIndex) {
@@ -317,7 +326,15 @@ function buildOptions(code, questionIndex) {
     }
 
     room.game.teamOptions = teamOptions;
-    return teamOptions;
+
+    const confirmedPlayers = Object.values(room.players).map(p => ({
+        socketId: p.socketId,
+        name: p.name,
+        avatar: p.avatar,
+        confirmed: false
+    }));
+
+    return { teamOptions, confirmedPlayers };
 }
 
 function calculateQuestionResults(code, questionIndex) {
@@ -343,14 +360,14 @@ function calculateQuestionResults(code, questionIndex) {
         const isCorrect = player.selectedOption === teamOpts.correctIndex;
 
         if (isCorrect) {
-            player.score += 100;
+            player.score += 3;
             correctPlayers.push({ name: player.name, team: player.team, score: player.score, selectedAnswer: selectedOpt.text });
         } else {
             if (selectedOpt.isTrap && selectedOpt.fromPlayer) {
                 trapInfo[selectedOpt.fromPlayer] = (trapInfo[selectedOpt.fromPlayer] || 0) + 1;
                 const trapper = Object.values(room.players).find(p => p.name === selectedOpt.fromPlayer);
                 if (trapper) {
-                    trapper.score += 50;
+                    trapper.score += 1;
                     room.scores[trapper.socketId] = trapper.score;
                 }
             }
@@ -381,6 +398,7 @@ function resetForNextQuestion(code) {
     for (const player of Object.values(room.players)) {
         player.trapAnswer = null;
         player.selectedOption = null;
+        player.hasConfirmed = false;
     }
 
     room.game.teamOptions = null;
@@ -401,7 +419,7 @@ function resetForNextQuestion(code) {
         round: room.game.currentRound,
         questionIndex: room.game.currentQuestionIndex,
         question: room.game.questions[room.game.currentRound]?.[room.game.currentQuestionIndex],
-        timer: 30,
+        timer: 10,
         players: room.players,
         mode: room.mode,
         teamNames: room.teamNames,
@@ -446,7 +464,7 @@ function submitDrawGuess(code, socketId, guess) {
     const isCorrect = guess.trim().toLowerCase() === correctWord.trim().toLowerCase();
 
     if (isCorrect) {
-        player.score += 100;
+        player.score += 3;
         room.scores[socketId] = player.score;
         room.game.drawGuesses.push({ name: player.name, team: player.team, correct: true });
         return { isCorrect, word: correctWord, score: player.score };
@@ -563,7 +581,7 @@ function submitOvertimeAnswer(code, socketId, optionIndex) {
     const isCorrect = optionIndex === question.الجواب;
 
     if (isCorrect) {
-        player.score += 200;
+        player.score += 3;
         room.scores[socketId] = player.score;
         normalizeScores(room);
 

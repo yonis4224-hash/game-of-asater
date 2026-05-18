@@ -597,3 +597,86 @@ body {
     .btn-large { padding: 14px 32px; font-size: 1rem; }
     .avatar-options { grid-template-columns: repeat(2, 1fr); }
 }
+
+.confirmed-players-bar {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    padding: 12px 15px; background: rgba(0, 0, 0, 0.3); border-radius: 14px;
+    margin-bottom: 15px; min-height: 50px; align-items: center;
+}
+
+.confirmed-player {
+    display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+    background: var(--glass); border: 1px solid var(--glass-border);
+    border-radius: 10px; font-size: 0.8rem; position: relative;
+}
+
+.confirmed-player.confirmed {
+    border-color: #2ECC71; background: rgba(46, 204, 113, 0.15);
+}
+
+.confirmed-avatar {
+    width: 28px; height: 28px; border-radius: 50%; object-fit: cover;
+    border: 1px solid var(--glass-border);
+}
+
+.confirmed-player.confirmed .confirmed-avatar {
+    border-color: #2ECC71;
+}
+
+.confirmed-name { color: #B8A9C9; font-weight: 600; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.confirmed-check {
+    color: #2ECC71; font-size: 1rem; position: absolute; top: -6px; right: -6px;
+    background: var(--bg-primary); border-radius: 50%; width: 18px; height: 18px;
+    display: flex; align-items: center; justify-content: center;
+}
+
+.options-question-card {
+    margin-top: 10px;
+}
+
+.team-result-header {
+    padding: 18px 20px; border-radius: 14px; text-align: center; margin-bottom: 15px;
+    background: linear-gradient(135deg, rgba(245, 166, 35, 0.2), rgba(108, 52, 131, 0.2));
+    border: 2px solid var(--gold);
+}
+
+.team-result-name { font-size: 1.4rem; font-weight: 800; color: var(--gold); }
+.team-result-score { font-size: 1.1rem; color: #B8A9C9; margin-top: 5px; }
+
+.team-player {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    background: var(--glass); border-radius: 12px; margin-bottom: 8px;
+    border: 1px solid var(--glass-border);
+}
+
+.winner-team-player { border-left: 3px solid #2ECC71; }
+.loser-team-player { border-left: 3px solid #E74C3C; }
+
+.player-rank {
+    font-size: 0.85rem; font-weight: 800; color: var(--gold); width: 30px;
+}
+
+.team-divider {
+    text-align: center; padding: 15px; font-size: 1.5rem; color: var(--gold);
+    border-top: 1px dashed var(--glass-border); border-bottom: 1px dashed var(--glass-border);
+    margin: 15px 0;
+}
+
+.rank-badge {
+    width: 36px; height: 36px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; font-weight: 900;
+    font-size: 1rem; flex-shrink: 0;
+}
+
+.rank-badge.gold { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: var(--purple-dark); }
+.rank-badge.silver { background: linear-gradient(135deg, #BDC3C7, #95A5A6); color: #2C3E50; }
+.rank-badge.bronze { background: linear-gradient(135deg, #CD7F32, #A0522D); color: white; }
+.rank-badge.default { background: var(--glass); border: 1px solid var(--glass-border); color: #B8A9C9; }
+
+.rank-label {
+    font-size: 0.8rem; font-weight: 700; color: var(--gold); padding: 4px 10px;
+    background: rgba(245, 166, 35, 0.15); border-radius: 8px;
+}
+
+.crown-icon { color: var(--gold); font-size: 1.3rem; }

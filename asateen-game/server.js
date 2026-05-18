@@ -85,6 +85,7 @@ io.on('connection', (socket) => {
             const room = getRoom(code);
             if (room && room.host === socket.id) {
                 const gameData = startGame(code);
+                gameData.mode = room.mode;
                 io.to(code).emit('gameStarted', gameData);
                 console.log(`Game started in room ${code}`);
             }
@@ -98,12 +99,13 @@ io.on('connection', (socket) => {
         if (!room) return;
         const result = submitTrapAnswer(code, socket.id, questionIndex, answer);
         if (result && result.allSubmitted) {
-            const teamOptions = buildOptions(code, questionIndex);
-            if (teamOptions) {
+            const teamOptionsData = buildOptions(code, questionIndex);
+            if (teamOptionsData) {
+                const { teamOptions, confirmedPlayers } = teamOptionsData;
                 for (const [team, data] of Object.entries(teamOptions)) {
                     const teamPlayers = Object.values(room.players).filter(p => p.team === team);
                     for (const player of teamPlayers) {
-                        io.to(player.socketId).emit('showOptions', { options: data.options });
+                        io.to(player.socketId).emit('showOptions', { options: data.options, confirmedPlayers });
                     }
                 }
             }
@@ -114,9 +116,12 @@ io.on('connection', (socket) => {
         const room = getRoom(code);
         if (!room) return;
         const result = submitOption(code, socket.id, questionIndex, optionIndex);
-        if (result && result.allSubmitted) {
-            const results = calculateQuestionResults(code, questionIndex);
-            if (results) io.to(code).emit('questionResults', results);
+        if (result) {
+            io.to(code).emit('confirmedPlayersUpdate', { confirmedPlayers: result.confirmedPlayers });
+            if (result.allSubmitted) {
+                const results = calculateQuestionResults(code, questionIndex);
+                if (results) io.to(code).emit('questionResults', results);
+            }
         }
     });
 
