@@ -172,6 +172,7 @@ function setLeader(code, socketId, targetSocketId) {
     const target = room.players[targetSocketId];
     if (!player || !target) return null;
     if (player.team !== target.team) return null;
+    if (!player.isLeader) return null;
 
     Object.values(room.players).forEach(p => {
         if (p.team === player.team) p.isLeader = false;
@@ -600,7 +601,22 @@ function startDrawRound(code) {
     const room = rooms[code];
     if (!room || !room.game) return null;
 
-    const leaders = Object.values(room.players).filter(p => p.isLeader);
+    let leaders = Object.values(room.players).filter(p => p.isLeader);
+
+    if (leaders.length < 2) {
+        const teams = [...new Set(Object.values(room.players).map(p => p.team))];
+        for (const team of teams) {
+            const hasLeader = leaders.some(l => l.team === team);
+            if (!hasLeader) {
+                const teamPlayers = Object.values(room.players).filter(p => p.team === team);
+                if (teamPlayers.length > 0) {
+                    teamPlayers[0].isLeader = true;
+                    leaders.push(teamPlayers[0]);
+                }
+            }
+        }
+    }
+
     if (leaders.length < 2) return null;
 
     const words = shuffleArray(codenamesWords).slice(0, 2);
@@ -610,6 +626,7 @@ function startDrawRound(code) {
     });
     room.game.drawGuesses = [];
     room.game.drawTimer = 30;
+    room.game.drawPhase = 'drawing';
 
     return {
         drawWords: room.game.drawWords,
@@ -628,6 +645,8 @@ function submitDrawGuess(code, socketId, guess) {
 
     const player = room.players[socketId];
     if (!player || player.isLeader) return null;
+
+    if (room.game.drawPhase !== 'guessing') return null;
 
     const leader = Object.values(room.players).find(p => p.isLeader && p.team === player.team);
     if (!leader) return null;
@@ -787,14 +806,16 @@ function disconnectPlayer(socketId) {
 
             if (Object.keys(room.players).length === 0) {
                 delete rooms[code];
+                return { code: null, room: null };
             } else {
                 if (room.host === socketId) {
                     room.host = Object.keys(room.players)[0];
                 }
             }
-            break;
+            return { code, room };
         }
     }
+    return null;
 }
 
 module.exports = {

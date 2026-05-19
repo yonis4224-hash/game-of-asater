@@ -60,6 +60,50 @@ function startQuestionFlow(code, questionIndex) {
     }, 10000);
 }
 
+function transitionToRound3(code) {
+    const room = getRoom(code);
+    if (!room || !room.game) return;
+    clearTimers(code);
+
+    const randomCat = room.game.randomCategory || 'culture';
+    const catNames = { culture: 'كرة قدم', cinema: 'سينما', wrestling: 'مصارعة' };
+    const catName = catNames[randomCat] || 'كرة قدم';
+
+    io.to(code).emit('showRoundTransition', {
+        round: 3,
+        roundTitle: `الجولة الثالثة - ${catName}`,
+        roundDisplayName: catName
+    });
+
+    addTimer(code, () => {
+        room.game.currentRound = 3;
+        room.game.currentQuestionIndex = 0;
+
+        for (const player of Object.values(room.players)) {
+            player.trapAnswer = null;
+            player.selectedOption = null;
+            player.hasConfirmed = false;
+        }
+        room.game.teamOptions = null;
+
+        const nextData = {
+            round: 3,
+            questionIndex: 0,
+            question: room.game.questions[3][0],
+            timer: 10,
+            players: room.players,
+            mode: room.mode,
+            teamNames: room.teamNames,
+            isSolo: false,
+            totalQuestions: 5,
+            roundTitle: `الجولة الثالثة - ${catName}`,
+            isFinished: false
+        };
+        io.to(code).emit('nextQuestion', nextData);
+        startQuestionFlow(code, 0);
+    }, 5000);
+}
+
 function handleNextPhase(code) {
     const room = getRoom(code);
     if (!room || room.status !== 'playing') return;
@@ -84,9 +128,19 @@ function handleNextPhase(code) {
             const drawData = startDrawRound(code);
             if (drawData) {
                 io.to(code).emit('startDrawRound', drawData);
+
+                addTimer(code, () => {
+                    const room = getRoom(code);
+                    if (!room || !room.game) return;
+                    room.game.drawPhase = 'guessing';
+                    io.to(code).emit('startDrawGuessing', { timer: 10, players: room.players, teamNames: room.teamNames });
+
+                    addTimer(code, () => {
+                        transitionToRound3(code);
+                    }, 10000);
+                }, 20000);
             } else {
-                const finishData = finishGame(code);
-                io.to(code).emit('gameFinished', finishData);
+                handleNextPhase(code);
             }
         }, 5000);
         return;
@@ -256,47 +310,22 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('endDrawRound', ({ code }) => {
+    socket.on('endDrawPhase', ({ code }) => {
         const room = getRoom(code);
-        if (!room) return;
+        if (!room || !room.game) return;
+        if (room.game.drawPhase !== 'drawing') return;
+
         clearTimers(code);
-
-        const randomCat = room.game.randomCategory;
-        const catName = { culture: 'كرة قدم', cinema: 'سينما', wrestling: 'مصارعة' }[randomCat] || 'عشوائي';
-
-        io.to(code).emit('showRoundTransition', {
-            round: 3,
-            roundTitle: `الجولة الثالثة - ${catName}`,
-            roundDisplayName: catName
-        });
+        room.game.drawPhase = 'guessing';
+        io.to(code).emit('startDrawGuessing', { timer: 10, players: room.players, teamNames: room.teamNames });
 
         addTimer(code, () => {
-            room.game.currentRound = 3;
-            room.game.currentQuestionIndex = 0;
+            transitionToRound3(code);
+        }, 10000);
+    });
 
-            for (const player of Object.values(room.players)) {
-                player.trapAnswer = null;
-                player.selectedOption = null;
-                player.hasConfirmed = false;
-            }
-            room.game.teamOptions = null;
-
-            const nextData = {
-                round: 3,
-                questionIndex: 0,
-                question: room.game.questions[3][0],
-                timer: 10,
-                players: room.players,
-                mode: room.mode,
-                teamNames: room.teamNames,
-                isSolo: false,
-                totalQuestions: 5,
-                roundTitle: `الجولة الثالثة - ${catName}`,
-                isFinished: false
-            };
-            io.to(code).emit('nextQuestion', nextData);
-            startQuestionFlow(code, 0);
-        }, 5000);
+    socket.on('endDrawRound', ({ code }) => {
+        transitionToRound3(code);
     });
 
     socket.on('revealCodenameWord', ({ code, wordIndex }) => {
@@ -316,7 +345,10 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('Player disconnected:', socket.id);
-        disconnectPlayer(socket.id);
+        const result = disconnectPlayer(socket.id);
+        if (result && result.room) {
+            io.to(result.code).emit('roomUpdate', result.room);
+        }
     });
 });
 

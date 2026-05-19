@@ -196,6 +196,8 @@ function updateLobby(room) {
 
     const myPlayer = room.players[socket.id];
     const myTeam = myPlayer ? myPlayer.team : 'A';
+    const isMyTeamLeader = myPlayer && myPlayer.isLeader;
+    const isAdmin = socket.id === room.host;
 
     const pickA = document.getElementById('pickTeamA');
     const pickB = document.getElementById('pickTeamB');
@@ -235,13 +237,17 @@ function updateLobby(room) {
         } else {
             item.style.borderLeft = `4px solid ${teamColors[player.team]}`;
             item.style.background = teamBgColors[player.team];
+            const isPlayerAdmin = player.socketId === room.host;
+            const badges = `${player.isLeader ? '👑' : ''}${isPlayerAdmin && !player.isLeader ? '⭐' : ''}`;
+            const leaderTransferBtn = isMyTeamLeader && !isMe ? `<button class="leader-transfer-btn" onclick="makeLeader('${player.socketId}')" title="تعيين كقائد">👑</button>` : '';
             item.innerHTML = `
                 ${getAvatarHTML(player.avatar)}
                 <div class="player-info">
                     <div class="player-name">${player.name} ${isMe ? '(أنت)' : ''}</div>
-                    <div class="player-status ready">${teamNames[player.team]} ${player.isLeader ? '👑' : ''}</div>
+                    <div class="player-status ready">${teamNames[player.team]} ${badges}</div>
                 </div>
                 ${isHost && !isMe ? `<button class="kick-btn" onclick="kickPlayer('${player.socketId}')"><i class="fas fa-times"></i></button>` : ''}
+                ${leaderTransferBtn}
             `;
             if (player.team === 'A') {
                 listA.appendChild(item);
@@ -267,6 +273,10 @@ function kickPlayer(targetSocketId) {
 
 function switchTeam(newTeam) {
     if (currentRoom) socket.emit('switchTeam', { code: currentRoom.code, newTeam });
+}
+
+function makeLeader(targetSocketId) {
+    if (currentRoom) socket.emit('setLeader', { code: currentRoom.code, targetSocketId });
 }
 
 function updateTeamNames() {
@@ -488,8 +498,9 @@ socket.on('startDrawRound', (data) => {
 
     document.getElementById('drawLeaderView').style.display = isLeader ? 'block' : 'none';
     document.getElementById('drawGuesserView').style.display = isLeader ? 'none' : 'block';
-    document.getElementById('guessInputArea').style.display = isLeader ? 'none' : 'block';
+    document.getElementById('guessInputArea').style.display = 'none';
     document.getElementById('drawEndBtn').style.display = isLeader ? 'block' : 'none';
+    document.getElementById('drawEndPhaseBtn').style.display = isLeader ? 'block' : 'none';
 
     if (isLeader && data.drawWords) {
         document.getElementById('drawWord').textContent = data.drawWords[socket.id] || '???';
@@ -497,12 +508,29 @@ socket.on('startDrawRound', (data) => {
 
     updateScoreBoard(data.players, currentRoom?.mode, data.teamNames);
     showScreen('screen-draw');
-    startTimer(data.timer, 'drawTimer');
+    startTimer(20, 'drawTimer');
     clearCanvas();
+});
+
+socket.on('startDrawGuessing', (data) => {
+    const myPlayer = data.players[socket.id];
+    const isLeader = myPlayer && myPlayer.isLeader;
+
+    document.getElementById('drawLeaderView').style.display = 'none';
+    document.getElementById('drawGuesserView').style.display = 'block';
+    document.getElementById('guessInputArea').style.display = isLeader ? 'none' : 'block';
+    document.getElementById('drawEndBtn').style.display = 'none';
+    document.getElementById('drawEndPhaseBtn').style.display = 'none';
+
+    startTimer(data.timer, 'drawTimer');
 });
 
 socket.on('drawGuessResult', (result) => {
     if (result.isCorrect) alert('✅ تخمين صحيح! +3 نقاط');
+});
+
+socket.on('endDrawRound', (data) => {
+    updateScoreBoard(data.players, currentRoom?.mode, data.teamNames);
 });
 
 socket.on('scoreUpdate', () => {
@@ -664,6 +692,10 @@ function nextQuestion() {
 
 function endDrawRound() {
     if (currentRoom) socket.emit('endDrawRound', { code: currentRoom.code });
+}
+
+function endDrawPhase() {
+    if (currentRoom) socket.emit('endDrawPhase', { code: currentRoom.code });
 }
 
 function restartGame() {
