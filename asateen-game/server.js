@@ -328,6 +328,17 @@ io.on('connection', (socket) => {
         transitionToRound3(code);
     });
 
+    socket.on('submitCodenamesHint', ({ code, hint, count }) => {
+        const room = getRoom(code);
+        if (!room || !room.game) return;
+        const player = room.players[socket.id];
+        if (!player || !player.isLeader) return;
+        if (player.team !== room.game.codenamesCurrentTeam) return;
+
+        room.game.codenamesHint = { hint, count, team: player.team };
+        io.to(code).emit('codenamesHintSubmitted', { hint, count, team: player.team, teamNames: room.teamNames });
+    });
+
     socket.on('revealCodenameWord', ({ code, wordIndex }) => {
         const room = getRoom(code);
         if (!room) return;

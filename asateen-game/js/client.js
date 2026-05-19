@@ -542,33 +542,85 @@ socket.on('startCodenamesRound', (data) => {
     const myPlayer = data.players[socket.id];
     const isLeader = myPlayer && myPlayer.isLeader;
 
-    renderCodenames(data.words, data.currentTeam, data.teamNames, data.teamWords, data.leaders, isLeader);
+    renderCodenames(data.words, data.cardTypes, data.currentTeam, data.teamNames, data.leaders, isLeader, data.score);
     updateScoreBoard(data.players, currentRoom?.mode, data.teamNames);
     showScreen('screen-codenames');
 });
 
-function renderCodenames(words, currentTeam, teamNames, teamWords, leaders, isLeader) {
+function renderCodenames(words, cardTypes, currentTeam, teamNames, leaders, isLeader, score) {
     const grid = document.getElementById('codenamesGrid');
     grid.innerHTML = '';
     const tn = teamNames || { A: 'الفريق أ', B: 'الفريق ب' };
 
     const hintDiv = document.getElementById('codenamesHint');
     const colorNames = { A: '🔴 الأحمر', B: '🔵 الأزرق' };
-    hintDiv.innerHTML = `دور <span style="color: ${currentTeam === 'A' ? '#E74C3C' : '#3498DB'}">${colorNames[currentTeam]}</span> - ${tn[currentTeam]}`;
+    hintDiv.innerHTML = `دور <span style="color: ${currentTeam === 'A' ? '#E74C3C' : '#3498DB'}">${colorNames[currentTeam]}</span> - ${tn[currentTeam]} | النتيجة: ${score.A} - ${score.B}`;
 
-    if (isLeader && teamWords) {
-        const myTeam = Object.keys(teamWords).find(t => leaders && leaders[t] === socket.id);
-        if (myTeam && teamWords[myTeam]) {
-            const hintArea = document.getElementById('codenamesLeaderHint');
-            if (hintArea) {
-                hintArea.style.display = 'block';
-                hintArea.innerHTML = `
-                    <div style="font-size: 0.85rem; color: #B8A9C9; margin-bottom: 5px;">🔑 كلمات فريقك (${colorNames[myTeam]}):</div>
-                    <div style="font-size: 0.95rem; font-weight: 700; color: ${myTeam === 'A' ? '#E74C3C' : '#3498DB'};">
-                        ${teamWords[myTeam].join(' • ')}
+    const hintInputArea = document.getElementById('codenamesHintInputArea');
+    if (hintInputArea) {
+        if (isLeader) {
+            const myTeam = Object.keys(leaders || {}).find(t => leaders[t] === socket.id);
+            if (myTeam && myTeam === currentTeam) {
+                hintInputArea.style.display = 'block';
+                hintInputArea.innerHTML = `
+                    <div class="spymaster-hint-box">
+                        <div class="spymaster-title"> أنت السباي ماستر - ${tn[myTeam]}</div>
+                        <div class="spymaster-words">
+                            <span style="color: ${myTeam === 'A' ? '#E74C3C' : '#3498DB'}">كلمات فريقك:</span>
+                            <span style="color: #F5A623">كلمات الخصم:</span>
+                            <span style="color: #B8A9C9">محايد</span>
+                            <span style="color: #333"> القاتل</span>
+                        </div>
+                        <div class="hint-input-row">
+                            <input type="text" id="hintWordInput" placeholder="كلمة التلميح..." maxlength="20">
+                            <input type="number" id="hintCountInput" placeholder="العدد" min="1" max="9" style="width: 70px;">
+                            <button class="btn-hint-submit" onclick="submitCodenamesHint()">إرسال التلميح</button>
+                        </div>
                     </div>
                 `;
+            } else {
+                hintInputArea.style.display = 'block';
+                hintInputArea.innerHTML = `<div class="spymaster-waiting">⏳ في انتظار تلميح السباي ماستر...</div>`;
             }
+        } else {
+            hintInputArea.style.display = 'block';
+            hintInputArea.innerHTML = `<div class="spymaster-waiting"> في انتظار تلميح السباي ماستر...</div>`;
+        }
+    }
+
+    const cardColors = { A: '#E74C3C', B: '#3498DB', neutral: '#D4A574', assassin: '#2C2C2C' };
+
+    words.forEach((word, index) => {
+        const card = document.createElement('div');
+        card.className = 'codename-card';
+        card.dataset.index = index;
+        card.dataset.type = cardTypes[index];
+
+        const cardInner = document.createElement('div');
+        cardInner.className = 'codename-card-inner';
+
+        const cardColor = cardInner.querySelector('.codename-card-color');
+
+        if (isLeader) {
+            card.style.background = cardColors[cardTypes[index]] || '#D4A574';
+            card.style.border = `2px solid ${cardColors[cardTypes[index]]}`;
+            if (cardTypes[index] === 'assassin') {
+                card.style.color = '#fff';
+            }
+        } else {
+            card.style.background = '#2A1B3D';
+            card.style.border = '2px solid rgba(255,255,255,0.1)';
+        }
+
+        cardInner.innerHTML = `<span class="codename-word">${word}</span>`;
+        card.appendChild(cardInner);
+
+        card.onclick = () => {
+            if (currentRoom) socket.emit('revealCodenameWord', { code: currentRoom.code, wordIndex: index });
+        };
+        grid.appendChild(card);
+    });
+}
         }
     }
 
@@ -585,20 +637,37 @@ function renderCodenames(words, currentTeam, teamNames, teamWords, leaders, isLe
 
 socket.on('codenameRevealed', (result) => {
     const cards = document.querySelectorAll('.codename-card');
-    Object.entries(result.revealed || {}).forEach(([index, type]) => {
-        if (cards[index]) {
-            cards[index].classList.add('revealed');
-            if (type === 'A') cards[index].style.background = 'rgba(231, 76, 60, 0.6)';
-            else if (type === 'B') cards[index].style.background = 'rgba(52, 152, 219, 0.6)';
-            else if (type === 'neutral') cards[index].style.background = 'rgba(255, 255, 255, 0.1)';
-            else if (type === 'assassin') cards[index].style.background = 'rgba(0, 0, 0, 0.8)';
-        }
-    });
+    const idx = result.revealed;
+    if (cards[idx]) {
+        cards[idx].classList.add('revealed');
+        const typeColors = { A: '#E74C3C', B: '#3498DB', neutral: '#D4A574', assassin: '#2C2C2C' };
+        cards[idx].style.background = typeColors[result.type] || '#D4A574';
+        cards[idx].style.opacity = '0.7';
+    }
 
     if (result.currentTeam) {
         const tn = result.teamNames || { A: 'الفريق أ', B: 'الفريق ب' };
-        const colorNames = { A: '🔴 الأحمر', B: '🔵 الأزرق' };
-        document.getElementById('codenamesHint').innerHTML = `دور <span style="color: ${result.currentTeam === 'A' ? '#E74C3C' : '#3498DB'}">${colorNames[result.currentTeam]}</span> - ${tn[result.currentTeam]}`;
+        const colorNames = { A: ' الأحمر', B: '🔵 الأزرق' };
+        document.getElementById('codenamesHint').innerHTML = `دور <span style="color: ${result.currentTeam === 'A' ? '#E74C3C' : '#3498DB'}">${colorNames[result.currentTeam]}</span> - ${tn[result.currentTeam]} | النتيجة: ${result.score.A} - ${result.score.B}`;
+    }
+
+    if (result.winner) {
+        const finishData = { winner: result.winner, teamScores: result.score, players: currentRoom?.players, teamNames: result.teamNames, mode: currentRoom?.mode };
+        showFinalResults(finishData);
+    }
+});
+
+socket.on('codenamesHintSubmitted', (data) => {
+    const hintArea = document.getElementById('codenamesHintInputArea');
+    if (hintArea) {
+        const tn = data.teamNames || { A: 'الفريق أ', B: 'الفريق ب' };
+        hintArea.innerHTML = `
+            <div class="spymaster-hint-display">
+                <div class="hint-word">"${data.hint}"</div>
+                <div class="hint-count">${data.count}</div>
+                <div class="hint-team">${tn[data.team]}</div>
+            </div>
+        `;
     }
 });
 
@@ -836,4 +905,11 @@ function submitGuess() {
     if (!guess) return;
     if (currentRoom) socket.emit('submitDrawGuess', { code: currentRoom.code, guess });
     document.getElementById('guessInput').value = '';
+}
+
+function submitCodenamesHint() {
+    const hint = document.getElementById('hintWordInput').value.trim();
+    const count = parseInt(document.getElementById('hintCountInput').value);
+    if (!hint || !count || count < 1) return;
+    if (currentRoom) socket.emit('submitCodenamesHint', { code: currentRoom.code, hint, count });
 }

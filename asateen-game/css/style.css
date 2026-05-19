@@ -434,14 +434,131 @@ body {
 .codenames-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 16px 0; }
 
 .codename-card {
-    aspect-ratio: 1; background: var(--glass); border: 2px solid var(--glass-border);
-    border-radius: 12px; display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 0.8rem; cursor: pointer; transition: all 0.3s ease;
-    text-align: center; padding: 6px;
+    aspect-ratio: 1.4;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    padding: 6px;
+    position: relative;
+    overflow: hidden;
 }
 
-.codename-card:hover { border-color: var(--gold); transform: scale(1.05); }
-.codename-card.revealed { pointer-events: none; }
+.codename-card-inner {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 6px;
+    padding: 8px 4px;
+    width: 90%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60%;
+}
+
+.codename-word {
+    color: #1A0B2E;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.codename-card:hover { transform: scale(1.05); }
+.codename-card.revealed { pointer-events: none; opacity: 0.7; }
+
+.spymaster-hint-box {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+}
+
+.spymaster-title {
+    font-size: 1rem;
+    font-weight: 900;
+    color: var(--gold);
+    margin-bottom: 6px;
+}
+
+.spymaster-words {
+    font-size: 0.7rem;
+    color: #B8A9C9;
+    margin-bottom: 8px;
+}
+
+.hint-input-row {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+}
+
+.hint-input-row input {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: white;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 0.9rem;
+    text-align: center;
+    outline: none;
+}
+
+.hint-input-row input:focus { border-color: var(--gold); }
+
+.btn-hint-submit {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    color: #1A0B2E;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 0.85rem;
+}
+
+.spymaster-waiting {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+    color: #B8A9C9;
+    font-size: 0.95rem;
+}
+
+.spymaster-hint-display {
+    background: var(--glass);
+    border: 1px solid var(--gold);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+}
+
+.hint-word {
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: var(--gold);
+}
+
+.hint-count {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: white;
+    margin: 4px 0;
+}
+
+.hint-team {
+    font-size: 0.85rem;
+    color: #B8A9C9;
+}
 
 .results-container { max-width: 650px; margin: 0 auto; text-align: center; }
 
@@ -727,7 +844,9 @@ body {
     .canvas-tools { gap: 4px; }
     .tool-btn { width: 30px; height: 30px; font-size: 0.75rem; }
     .codenames-grid { gap: 4px; }
-    .codename-card { font-size: 0.65rem; border-radius: 8px; padding: 4px; }
+    .codename-card { font-size: 0.55rem; border-radius: 6px; padding: 2px; }
+    .codename-word { font-size: 0.5rem; }
+    .codename-card-inner { padding: 4px 2px; }
     .results-container { padding: 0 4px; }
     .results-section { padding: 12px; margin-bottom: 8px; }
     .results-section h3 { font-size: 0.8rem; }

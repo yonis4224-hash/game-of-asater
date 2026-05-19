@@ -668,17 +668,31 @@ function startCodenamesRound(code) {
     const room = rooms[code];
     if (!room || !room.game) return null;
 
-    const words = shuffleArray(codenamesWords).slice(0, 15);
-    const teamAWords = words.slice(0, 7);
-    const teamBWords = words.slice(7, 14);
-    const assassinWord = words[14];
+    const allWords = shuffleArray(codenamesWords).slice(0, 25);
+    const teamAWords = allWords.slice(0, 9);
+    const teamBWords = allWords.slice(9, 17);
+    const neutralWords = allWords.slice(17, 24);
+    const assassinWord = allWords[24];
 
-    room.game.codenamesWords = words;
-    room.game.codenamesTeamWords = { A: teamAWords, B: teamBWords, assassin: assassinWord };
+    const gridWords = shuffleArray(allWords);
+
+    const cardTypes = {};
+    gridWords.forEach((word, index) => {
+        if (teamAWords.includes(word)) cardTypes[index] = 'A';
+        else if (teamBWords.includes(word)) cardTypes[index] = 'B';
+        else if (word === assassinWord) cardTypes[index] = 'assassin';
+        else cardTypes[index] = 'neutral';
+    });
+
+    room.game.codenamesWords = gridWords;
+    room.game.codenamesCardTypes = cardTypes;
     room.game.codenamesRevealed = {};
     room.game.codenamesCurrentTeam = 'A';
     room.game.codenamesScore = { A: 0, B: 0 };
     room.game.codenamesWinner = null;
+    room.game.codenamesHint = null;
+    room.game.codenamesRemaining = 9;
+    room.game.codenamesTeamWords = { A: teamAWords, B: teamBWords };
 
     const leaders = {};
     Object.values(room.players).forEach(p => {
@@ -686,13 +700,13 @@ function startCodenamesRound(code) {
     });
 
     return {
-        words,
+        words: gridWords,
+        cardTypes: cardTypes,
         teamNames: room.teamNames,
         players: room.players,
         currentTeam: 'A',
-        teamWords: { A: teamAWords, B: teamBWords },
         leaders,
-        teamColors: { A: 'red', B: 'blue' },
+        score: { A: 0, B: 0 },
         round: 4,
         roundTitle: 'الجولة الرابعة - كود نيمز',
         roundDisplayName: 'كود نيمز'
@@ -706,15 +720,12 @@ function revealCodenameWord(code, socketId, wordIndex) {
     const player = room.players[socketId];
     if (!player) return null;
 
-    const word = room.game.codenamesWords[wordIndex];
-    if (!word) return null;
-
     if (room.game.codenamesRevealed[wordIndex] !== undefined) return null;
 
-    const { A: teamAWords, B: teamBWords, assassin } = room.game.codenamesTeamWords;
+    const cardType = room.game.codenamesCardTypes[wordIndex];
+    room.game.codenamesRevealed[wordIndex] = cardType;
 
-    if (word === assassin) {
-        room.game.codenamesRevealed[wordIndex] = 'assassin';
+    if (cardType === 'assassin') {
         const winningTeam = player.team === 'A' ? 'B' : 'A';
         room.game.codenamesWinner = winningTeam;
 
@@ -725,48 +736,41 @@ function revealCodenameWord(code, socketId, wordIndex) {
             }
         }
 
-        return { revealed: 'assassin', winner: winningTeam, teamNames: room.teamNames, teamColors: { A: 'red', B: 'blue' } };
+        return { revealed: wordIndex, type: 'assassin', winner: winningTeam, teamNames: room.teamNames, score: room.game.codenamesScore };
     }
 
-    if (teamAWords.includes(word)) {
-        room.game.codenamesRevealed[wordIndex] = 'A';
+    if (cardType === 'A') {
         room.game.codenamesScore.A++;
-        if (room.game.codenamesScore.A >= teamAWords.length) {
+        if (room.game.codenamesScore.A >= 9) {
             room.game.codenamesWinner = 'A';
-
             for (const p of Object.values(room.players)) {
                 if (p.team === 'A') {
                     p.score += 3;
                     room.scores[p.socketId] = p.score;
                 }
             }
-
-            return { revealed: 'A', score: room.game.codenamesScore, winner: 'A', teamNames: room.teamNames, teamColors: { A: 'red', B: 'blue' } };
+            return { revealed: wordIndex, type: 'A', score: room.game.codenamesScore, winner: 'A', teamNames: room.teamNames };
         }
-        return { revealed: 'A', score: room.game.codenamesScore, teamNames: room.teamNames, teamColors: { A: 'red', B: 'blue' } };
+        return { revealed: wordIndex, type: 'A', score: room.game.codenamesScore, teamNames: room.teamNames };
     }
 
-    if (teamBWords.includes(word)) {
-        room.game.codenamesRevealed[wordIndex] = 'B';
+    if (cardType === 'B') {
         room.game.codenamesScore.B++;
-        if (room.game.codenamesScore.B >= teamBWords.length) {
+        if (room.game.codenamesScore.B >= 8) {
             room.game.codenamesWinner = 'B';
-
             for (const p of Object.values(room.players)) {
                 if (p.team === 'B') {
                     p.score += 3;
                     room.scores[p.socketId] = p.score;
                 }
             }
-
-            return { revealed: 'B', score: room.game.codenamesScore, winner: 'B', teamNames: room.teamNames, teamColors: { A: 'red', B: 'blue' } };
+            return { revealed: wordIndex, type: 'B', score: room.game.codenamesScore, winner: 'B', teamNames: room.teamNames };
         }
-        return { revealed: 'B', score: room.game.codenamesScore, teamNames: room.teamNames, teamColors: { A: 'red', B: 'blue' } };
+        return { revealed: wordIndex, type: 'B', score: room.game.codenamesScore, teamNames: room.teamNames };
     }
 
-    room.game.codenamesRevealed[wordIndex] = 'neutral';
     room.game.codenamesCurrentTeam = player.team === 'A' ? 'B' : 'A';
-    return { revealed: 'neutral', score: room.game.codenamesScore, currentTeam: room.game.codenamesCurrentTeam, teamNames: room.teamNames, teamColors: { A: 'red', B: 'blue' } };
+    return { revealed: wordIndex, type: 'neutral', score: room.game.codenamesScore, currentTeam: room.game.codenamesCurrentTeam, teamNames: room.teamNames };
 }
 
 function finishGame(code) {
