@@ -621,19 +621,6 @@ function renderCodenames(words, cardTypes, currentTeam, teamNames, leaders, isLe
         grid.appendChild(card);
     });
 }
-        }
-    }
-
-    words.forEach((word, index) => {
-        const card = document.createElement('div');
-        card.className = 'codename-card';
-        card.textContent = word;
-        card.onclick = () => {
-            if (currentRoom) socket.emit('revealCodenameWord', { code: currentRoom.code, wordIndex: index });
-        };
-        grid.appendChild(card);
-    });
-}
 
 socket.on('codenameRevealed', (result) => {
     const cards = document.querySelectorAll('.codename-card');
