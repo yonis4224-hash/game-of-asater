@@ -52,6 +52,11 @@
                         <div class="mode-option-title">جماعي</div>
                         <div class="mode-option-desc">فرق - 4 جولات</div>
                     </div>
+                    <div class="mode-option" id="modeMafia" onclick="selectGameMode('mafia')">
+                        <span class="mode-option-icon">🔫</span>
+                        <div class="mode-option-title">مافيا</div>
+                        <div class="mode-option-desc">أدوار مخفية - ليل ونهار</div>
+                    </div>
                 </div>
             </div>
 
@@ -343,6 +348,217 @@
         </div>
 
         <div class="codenames-grid" id="codenamesGrid"></div>
+    </div>
+
+    <div class="screen" id="screen-mafia-lobby">
+        <div class="header-bar">
+            <div class="header-logo">لعبة الأساطير</div>
+            <div class="header-icons">
+                <div class="header-icon" onclick="showScreen('screen-home')"><i class="fas fa-home"></i></div>
+                <div class="header-icon" onclick="copyCode()"><i class="fas fa-share-alt"></i></div>
+            </div>
+        </div>
+
+        <div class="lobby-container">
+            <div class="mode-badge">
+                <i class="fas fa-mask"></i>
+                <span>مافيا</span>
+            </div>
+
+            <h1 class="section-title">غرفة المافيا</h1>
+            <p class="section-subtitle">شارك الكود مع أصدقائك للانضمام</p>
+
+            <div class="room-code" id="mafiaRoomCode">------</div>
+
+            <div style="text-align: center; margin: 10px 0;">
+                <button class="btn btn-outline" onclick="copyCode()"><i class="fas fa-copy"></i> نسخ الكود</button>
+            </div>
+
+            <div class="divider"></div>
+
+            <h3 style="margin-bottom: 15px; color: var(--gold); font-size: 1.1rem;">
+                <i class="fas fa-users"></i> اللاعبون (<span id="mafiaPlayerCount">0</span>/<span id="mafiaMaxPlayers">12</span>)
+            </h3>
+
+            <div class="players-list" id="mafiaPlayersList"></div>
+
+            <div class="divider"></div>
+
+            <h3 style="margin-bottom: 15px; color: var(--purple); font-size: 1.1rem;">
+                <i class="fas fa-cogs"></i> إعدادات الأدوار
+            </h3>
+
+            <div class="card card-purple">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <span><i class="fas fa-mask" style="color: #E74C3C;"></i> عدد عناصر المافيا</span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <button class="btn btn-outline" style="padding: 5px 12px;" onclick="adjustMafiaCount(-1)"><i class="fas fa-minus"></i></button>
+                        <span id="mafiaCountDisplay" style="font-weight: 700; font-size: 1.2rem; min-width: 20px; text-align: center;">2</span>
+                        <button class="btn btn-outline" style="padding: 5px 12px;" onclick="adjustMafiaCount(1)"><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <span><i class="fas fa-user-md" style="color: #2ECC71;"></i> الطبيب</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="doctorToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span><i class="fas fa-search" style="color: #3498DB;"></i> الشرطي</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="policeToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="mafiaProgressFill" style="width: 8%;"></div>
+            </div>
+
+            <button class="btn btn-primary btn-large btn-block" id="mafiaStartBtn" onclick="startMafiaGame()" style="display: none;">
+                <i class="fas fa-play-circle"></i> ابدأ اللعبة
+            </button>
+        </div>
+    </div>
+
+    <div class="screen" id="screen-mafia-night">
+        <div class="header-bar">
+            <div class="header-logo">لعبة الأساطير</div>
+            <div class="header-icons">
+                <div class="header-icon"><i class="fas fa-moon"></i></div>
+            </div>
+        </div>
+
+        <div class="game-header" style="background: linear-gradient(135deg, #1a1a2e, #16213e);">
+            <div class="round-info">
+                <div class="round-number" id="mafiaNightRound" style="background: linear-gradient(135deg, #2c3e50, #34495e);">🌙</div>
+                <div>
+                    <div class="round-title" id="mafiaNightTitle">الليل - الجولة 1</div>
+                    <span class="badge" style="background: rgba(255,255,255,0.1); color: #ecf0f1;"><i class="fas fa-mask"></i> <span id="mafiaNightRoleBadge">دورك: ---</span></span>
+                </div>
+            </div>
+            <div class="timer" id="mafiaNightTimer" style="background: rgba(0,0,0,0.3);">00:30</div>
+        </div>
+
+        <div style="text-align: center; padding: 20px 0 10px;">
+            <div style="font-size: 3rem;">🌙</div>
+            <h2 style="color: #ecf0f1; margin: 10px 0 5px;">الليل ساد...</h2>
+            <p id="mafiaNightDesc" style="color: #95a5a6; font-size: 0.9rem;">الأدوار الخاصة تتحرك في الظلام</p>
+        </div>
+
+        <div class="card" style="margin: 10px 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+            <div id="mafiaNightActions">
+                <p style="text-align: center; color: #95a5a6;">جاري تحديد دورك...</p>
+            </div>
+        </div>
+
+        <div style="padding: 10px 15px;">
+            <button class="btn btn-primary btn-large btn-block" id="mafiaNightConfirmBtn" onclick="confirmMafiaNightAction()" style="display: none;">
+                <i class="fas fa-check-circle"></i> تأكيد القرار
+            </button>
+        </div>
+    </div>
+
+    <div class="screen" id="screen-mafia-day">
+        <div class="header-bar">
+            <div class="header-logo">لعبة الأساطير</div>
+            <div class="header-icons">
+                <div class="header-icon"><i class="fas fa-sun"></i></div>
+            </div>
+        </div>
+
+        <div class="game-header">
+            <div class="round-info">
+                <div class="round-number" id="mafiaDayRound">☀️</div>
+                <div>
+                    <div class="round-title" id="mafiaDayTitle">النهار - الجولة 1</div>
+                    <span class="badge badge-gold"><i class="fas fa-comments"></i> مناقشة وتصويت</span>
+                </div>
+            </div>
+            <div class="timer" id="mafiaDayTimer">01:00</div>
+        </div>
+
+        <div id="mafiaDeathAnnouncement" style="display: none; margin: 10px 15px;">
+            <div class="card" style="background: linear-gradient(135deg, #E74C3C, #C0392B); text-align: center; padding: 15px;">
+                <div style="font-size: 2rem; margin-bottom: 5px;">💀</div>
+                <h3 style="color: white; margin: 0;">قتل خلال الليل</h3>
+                <p style="color: #f1c40f; font-weight: 700; font-size: 1.1rem;" id="mafiaDeadPlayerName">---</p>
+                <p style="color: rgba(255,255,255,0.8); font-size: 0.85rem;" id="mafiaDeadPlayerRole">الدور: ---</p>
+            </div>
+        </div>
+
+        <div style="margin: 10px 15px;">
+            <div class="card card-gold" style="padding: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span><i class="fas fa-comments"></i> منطقة النقاش</span>
+                    <span style="color: var(--gold); font-size: 0.85rem;" id="mafiaAliveCount">--- أحياء</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin: 0 15px; flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+            <div id="mafiaChat" style="flex: 1; overflow-y: auto; padding: 10px; max-height: 250px;">
+                <p style="text-align: center; color: #95a5a6; padding: 20px 0;">ابدأ النقاش مع اللاعبين...</p>
+            </div>
+            <div style="display: flex; gap: 8px; padding: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <input type="text" class="input-field" id="mafiaChatInput" placeholder="اكتب رسالة..." style="flex: 1; margin: 0;">
+                <button class="btn btn-primary" onclick="sendMafiaChatMessage()"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+
+        <div id="mafiaVoteArea" style="margin: 10px 15px;">
+            <h3 style="color: var(--gold); font-size: 1rem; margin-bottom: 10px;">
+                <i class="fas fa-vote-yea"></i> التصويت لل طرد
+            </h3>
+            <div class="card card-purple" style="padding: 10px;">
+                <div id="mafiaVoteButtons" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+                    <p style="grid-column: 1 / -1; text-align: center; color: #95a5a6;">التصويت متاح بعد انتهاء الوقت</p>
+                </div>
+            </div>
+        </div>
+
+        <div style="padding: 10px 15px;">
+            <button class="btn btn-outline btn-block" id="mafiaNominateBtn" onclick="nominatePlayer()" style="display: none;">
+                <i class="fas fa-bullhorn"></i> ترشيح لاعب للطرد
+            </button>
+        </div>
+    </div>
+
+    <div class="screen" id="screen-mafia-results">
+        <div class="header-bar">
+            <div class="header-logo">لعبة الأساطير</div>
+            <div class="header-icons">
+                <div class="header-icon" onclick="showScreen('screen-home')"><i class="fas fa-home"></i></div>
+            </div>
+        </div>
+
+        <div class="results-container">
+            <div id="mafiaWinnerBanner" style="text-align: center; margin-bottom: 20px;">
+                <div style="font-size: 4rem;" id="mafiaWinnerIcon">🏆</div>
+                <h1 style="font-size: 1.8rem; margin: 10px 0 5px;" id="mafiaWinnerTitle">--- فاز!</h1>
+                <p style="color: var(--gold); font-size: 1.1rem; font-weight: 700;" id="mafiaWinnerTeam">---</p>
+            </div>
+
+            <div class="divider"></div>
+
+            <h2 class="section-title" style="font-size: 1.2rem;">
+                <i class="fas fa-id-card"></i> كشف الأدوار
+            </h2>
+
+            <div id="mafiaRoleReveal" style="margin: 15px 0;">
+            </div>
+
+            <div class="divider"></div>
+
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 25px 0;">
+                <button class="btn btn-primary btn-block" onclick="restartMafiaGame()"><i class="fas fa-redo"></i> لعبة جديدة</button>
+                <button class="btn btn-secondary btn-block" onclick="showScreen('screen-home')"><i class="fas fa-home"></i> القائمة الرئيسية</button>
+            </div>
+        </div>
     </div>
 
     <div class="screen" id="screen-results">

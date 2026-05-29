@@ -8,7 +8,11 @@ const {
     buildOptions, calculateQuestionResults, resetForNextQuestion,
     startDrawRound, submitDrawGuess, startCodenamesRound, revealCodenameWord,
     finishGame, rooms,
-    autoConfirmTrapPlayers, autoConfirmOptionPlayers
+    autoConfirmTrapPlayers, autoConfirmOptionPlayers,
+    createMafiaRoom, updateMafiaConfig, startMafiaGame,
+    mafiaKill, doctorSave, policeCheck, resolveMafiaNight,
+    nominatePlayer, mafiaVoteDay, resolveMafiaDay,
+    getMafiaGameState, addMafiaChatMessage
 } = require('./js/game-logic');
 
 const app = express();
@@ -104,6 +108,153 @@ function transitionToRound3(code) {
     }, 5000);
 }
 
+function startMafiaNight(code) {
+    const room = getRoom(code);
+    if (!room || !room.game) return;
+    clearTimers(code);
+
+    room.game.phase = 'night';
+    room.game.nightResolved = false;
+
+    io.to(code).emit('mafiaNightStart', { day: room.game.day });
+
+    Object.entries(room.players).forEach(([id, player]) => {
+        if (player.alive) {
+            const state = getMafiaGameState(code, id);
+            io.to(id).emit('mafiaState', state);
+        }
+    });
+
+    addTimer(code, () => {
+        const r = getRoom(code);
+        if (r && r.game && r.game.phase === 'night') {
+            Object.values(r.game.mafiaTeam).forEach(id => {
+                if (r.game.mafiaChoices[id] === undefined) {
+                    const aliveTargets = Object.values(r.players).filter(p => p.alive && p.team !== 'mafia');
+                    if (aliveTargets.length > 0) {
+                        r.game.mafiaChoices[id] = aliveTargets[0].socketId;
+                    }
+                }
+            });
+            if (r.game.doctorChoice === undefined) {
+                r.game.doctorChoice = null;
+            }
+            startMafiaNightResolution(code);
+        }
+    }, 30000);
+}
+
+function checkMafiaNightReady(code) {
+    const room = getRoom(code);
+    if (!room || !room.game || room.game.phase !== 'night') return;
+}
+
+function startMafiaNightResolution(code) {
+    const room = getRoom(code);
+    if (!room || !room.game) return;
+    clearTimers(code);
+
+    const result = resolveMafiaNight(code);
+    if (!result) return;
+
+    io.to(code).emit('mafiaNightResult', result);
+
+    Object.entries(room.players).forEach(([id, player]) => {
+        if (player.alive) {
+            const state = getMafiaGameState(code, id);
+            io.to(id).emit('mafiaState', state);
+        }
+    });
+
+    if (result.win) {
+        addTimer(code, () => {
+            const allPlayers = room.players;
+            io.to(code).emit('mafiaGameOver', { win: result.win, players: allPlayers });
+        }, 5000);
+        return;
+    }
+
+    addTimer(code, () => {
+        startMafiaDay(code);
+    }, 5000);
+}
+
+function startMafiaDay(code) {
+    const room = getRoom(code);
+    if (!room || !room.game) return;
+    clearTimers(code);
+
+    room.game.phase = 'day';
+    room.game.dayMessages = [];
+    room.game.votes = {};
+    room.game.nominated = [];
+
+    io.to(code).emit('mafiaDayStart', { day: room.game.day });
+
+    Object.entries(room.players).forEach(([id, player]) => {
+        if (player.alive) {
+            const state = getMafiaGameState(code, id);
+            io.to(id).emit('mafiaState', state);
+        }
+    });
+
+    addTimer(code, () => {
+        startMafiaVoting(code);
+    }, 60000);
+}
+
+function startMafiaVoting(code) {
+    const room = getRoom(code);
+    if (!room || !room.game) return;
+    clearTimers(code);
+
+    room.game.phase = 'voting';
+    room.game.votes = {};
+
+    io.to(code).emit('mafiaVotingStart', { nominated: room.game.nominated, day: room.game.day });
+
+    Object.entries(room.players).forEach(([id, player]) => {
+        if (player.alive) {
+            const state = getMafiaGameState(code, id);
+            io.to(id).emit('mafiaState', state);
+        }
+    });
+
+    addTimer(code, () => {
+        resolveDayPhase(code);
+    }, 30000);
+}
+
+function resolveDayPhase(code) {
+    const room = getRoom(code);
+    if (!room || !room.game) return;
+    clearTimers(code);
+
+    const result = resolveMafiaDay(code);
+    if (!result) return;
+
+    io.to(code).emit('mafiaDayResult', result);
+
+    Object.entries(room.players).forEach(([id, player]) => {
+        if (player.alive) {
+            const state = getMafiaGameState(code, id);
+            io.to(id).emit('mafiaState', state);
+        }
+    });
+
+    if (result.win) {
+        addTimer(code, () => {
+            const allPlayers = room.players;
+            io.to(code).emit('mafiaGameOver', { win: result.win, players: allPlayers });
+        }, 5000);
+        return;
+    }
+
+    addTimer(code, () => {
+        startMafiaNight(code);
+    }, 5000);
+}
+
 function handleNextPhase(code) {
     const room = getRoom(code);
     if (!room || room.status !== 'playing') return;
@@ -187,7 +338,12 @@ io.on('connection', (socket) => {
 
     socket.on('createRoom', ({ playerName, avatar, mode }) => {
         try {
-            const room = createRoom(socket.id, playerName, mode);
+            let room;
+            if (mode === 'mafia') {
+                room = createMafiaRoom(socket.id, playerName);
+            } else {
+                room = createRoom(socket.id, playerName, mode);
+            }
             if (avatar !== undefined && avatar !== null) room.players[socket.id].avatar = avatar;
             socket.join(room.code);
             socket.emit('roomCreated', room);
@@ -328,15 +484,85 @@ io.on('connection', (socket) => {
         transitionToRound3(code);
     });
 
-    socket.on('submitCodenamesHint', ({ code, hint, count }) => {
-        const room = getRoom(code);
-        if (!room || !room.game) return;
-        const player = room.players[socket.id];
-        if (!player || !player.isLeader) return;
-        if (player.team !== room.game.codenamesCurrentTeam) return;
+    socket.on('updateMafiaConfig', ({ code, config }) => {
+        const room = updateMafiaConfig(code, config);
+        if (room) io.to(code).emit('roomUpdate', room);
+    });
 
-        room.game.codenamesHint = { hint, count, team: player.team };
-        io.to(code).emit('codenamesHintSubmitted', { hint, count, team: player.team, teamNames: room.teamNames });
+    socket.on('startMafiaGame', ({ code }) => {
+        try {
+            const room = getRoom(code);
+            if (room && room.host === socket.id && room.mode === 'mafia') {
+                clearTimers(code);
+                const gameData = startMafiaGame(code);
+                if (gameData) {
+                    io.to(code).emit('mafiaGameStarted', gameData);
+
+                    Object.entries(room.players).forEach(([id, player]) => {
+                        const state = getMafiaGameState(code, id);
+                        io.to(id).emit('mafiaState', state);
+                    });
+
+                    startMafiaNight(code);
+                }
+            }
+        } catch (err) {
+            console.error('startMafiaGame error:', err);
+        }
+    });
+
+    socket.on('mafiaKill', ({ code, targetId }) => {
+        const result = mafiaKill(code, socket.id, targetId);
+        if (result) {
+            if (!result.waiting) {
+                startMafiaNightResolution(code);
+            } else {
+                const room = getRoom(code);
+                if (room && room.game) {
+                    room.game.mafiaTeam.forEach(id => {
+                        io.to(id).emit('mafiaKillUpdate', { submittedCount: result.submittedCount, totalMafia: result.totalMafia });
+                    });
+                }
+            }
+        }
+    });
+
+    socket.on('doctorSave', ({ code, targetId }) => {
+        const result = doctorSave(code, socket.id, targetId);
+        if (result) {
+            socket.emit('doctorSaveConfirm', result);
+            checkMafiaNightReady(code);
+        }
+    });
+
+    socket.on('policeCheck', ({ code, targetId }) => {
+        const result = policeCheck(code, socket.id, targetId);
+        if (result) {
+            socket.emit('policeCheckResult', result);
+            checkMafiaNightReady(code);
+        }
+    });
+
+    socket.on('mafiaNominate', ({ code, targetId }) => {
+        const result = nominatePlayer(code, socket.id, targetId);
+        if (result) {
+            io.to(code).emit('mafiaNominationUpdate', result);
+        }
+    });
+
+    socket.on('mafiaVote', ({ code, targetId }) => {
+        const result = mafiaVoteDay(code, socket.id, targetId);
+        if (result) {
+            io.to(code).emit('mafiaVoteUpdate', result);
+            if (result.totalVotes >= result.neededVotes) {
+                resolveDayPhase(code);
+            }
+        }
+    });
+
+    socket.on('mafiaChat', ({ code, message }) => {
+        const msg = addMafiaChatMessage(code, socket.id, message);
+        if (msg) io.to(code).emit('mafiaChatMessage', msg);
     });
 
     socket.on('revealCodenameWord', ({ code, wordIndex }) => {

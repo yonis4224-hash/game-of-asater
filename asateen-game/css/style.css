@@ -899,3 +899,253 @@ body {
     .round-transition-title { font-size: 1.2rem; }
     .round-transition-subtitle { font-size: 0.85rem; }
 }
+
+.mafia-night-bg {
+    background: linear-gradient(180deg, #0a0a1a 0%, #1a0a2e 50%, #0a0a1a 100%);
+    min-height: 100vh;
+}
+
+.mafia-night-header {
+    text-align: center;
+    padding: 15px;
+    color: #B8A9C9;
+}
+
+.mafia-night-header .moon {
+    font-size: 2.5rem;
+    animation: pulse 2s infinite;
+}
+
+.mafia-night-header h2 {
+    color: var(--gold);
+    font-size: 1.1rem;
+    margin: 5px 0;
+}
+
+.mafia-target-btn {
+    display: block;
+    width: 100%;
+    padding: 12px 16px;
+    margin: 6px 0;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: white;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: right;
+}
+
+.mafia-target-btn:hover {
+    background: rgba(231, 76, 60, 0.2);
+    border-color: #E74C3C;
+}
+
+.mafia-target-btn.selected {
+    background: rgba(231, 76, 60, 0.3);
+    border-color: #E74C3C;
+    color: #E74C3C;
+    font-weight: 700;
+}
+
+.mafia-sleeping {
+    text-align: center;
+    font-size: 1.3rem;
+    color: #B8A9C9;
+    padding: 30px;
+    animation: pulse 2s infinite;
+}
+
+.mafia-chat-area {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+}
+
+.mafia-chat-msg {
+    padding: 6px 10px;
+    margin: 4px 0;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: #ddd;
+}
+
+.mafia-chat-msg strong {
+    color: var(--gold);
+}
+
+.mafia-chat-input-row {
+    display: flex;
+    gap: 8px;
+}
+
+.mafia-chat-input-row input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: white;
+    font-family: 'Tajawal', sans-serif;
+    outline: none;
+}
+
+.mafia-chat-input-row input:focus {
+    border-color: var(--gold);
+}
+
+.mafia-chat-input-row button {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    color: #1A0B2E;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Tajawal', sans-serif;
+}
+
+.mafia-vote-btn {
+    display: block;
+    width: 100%;
+    padding: 10px 14px;
+    margin: 5px 0;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: white;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: right;
+}
+
+.mafia-vote-btn:hover {
+    background: rgba(231, 76, 60, 0.2);
+    border-color: #E74C3C;
+}
+
+.mafia-vote-btn.selected {
+    background: rgba(231, 76, 60, 0.3);
+    border-color: #E74C3C;
+    font-weight: 700;
+}
+
+.mafia-skip-btn {
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #B8A9C9;
+}
+
+.mafia-skip-btn.selected {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #B8A9C9;
+}
+
+.mafia-death-banner {
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.3), rgba(192, 57, 43, 0.3));
+    border: 1px solid #E74C3C;
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+    color: #E74C3C;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+}
+
+.mafia-role-card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-left: 4px solid;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin: 6px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mafia-role-emoji { font-size: 1.5rem; }
+.mafia-role-name { font-weight: 700; color: white; font-size: 0.9rem; }
+.mafia-role-title { font-size: 0.75rem; color: #B8A9C9; }
+
+.mafia-winner-mafia {
+    background: linear-gradient(135deg, #E74C3C, #C0392B);
+    color: white;
+    padding: 15px;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 1.3rem;
+    font-weight: 900;
+    margin-bottom: 15px;
+}
+
+.mafia-winner-citizen {
+    background: linear-gradient(135deg, #2ECC71, #27AE60);
+    color: white;
+    padding: 15px;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 1.3rem;
+    font-weight: 900;
+    margin-bottom: 15px;
+}
+
+.mafia-config-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mafia-config-row label {
+    color: #B8A9C9;
+    font-size: 0.85rem;
+}
+
+.mafia-toggle {
+    width: 44px;
+    height: 24px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.mafia-toggle.active {
+    background: var(--gold);
+}
+
+.mafia-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.mafia-toggle.active::after {
+    right: 22px;
+}
+
+.mafia-moon {
+    font-size: 3rem;
+    text-align: center;
+    margin: 10px 0;
+    animation: pulse 2s infinite;
+}

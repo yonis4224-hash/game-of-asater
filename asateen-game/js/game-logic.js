@@ -822,6 +822,326 @@ function disconnectPlayer(socketId) {
     return null;
 }
 
+const mafiaRoles = {
+    mafia: { name: 'مافيا', team: 'mafia', emoji: '🔫', description: 'اقتل المواطنين في الليل' },
+    citizen: { name: 'مواطن', team: 'citizen', emoji: '👤', description: 'اكتشف المافيا وصوّت لطردها' },
+    doctor: { name: 'طبيب', team: 'citizen', emoji: '💊', description: 'انقذ أحد اللاعبين في الليل' },
+    police: { name: 'شرطي', team: 'citizen', emoji: '🔍', description: 'تحقق من هوية لاعب في الليل' }
+};
+
+function createMafiaRoom(hostSocketId, hostName) {
+    const code = generateCode();
+    rooms[code] = {
+        code,
+        host: hostSocketId,
+        mode: 'mafia',
+        teamNames: { A: 'المافيا', B: 'المواطنون' },
+        scores: {},
+        players: {
+            [hostSocketId]: {
+                socketId: hostSocketId,
+                name: hostName,
+                team: 'A',
+                isLeader: true,
+                score: 0,
+                ready: true,
+                trapAnswer: null,
+                selectedOption: null,
+                hasConfirmed: false,
+                avatar: null
+            }
+        },
+        game: null,
+        status: 'waiting',
+        mafiaConfig: {
+            mafiaCount: 1,
+            doctorEnabled: true,
+            policeEnabled: true
+        }
+    };
+    rooms[code].scores[hostSocketId] = 0;
+    return rooms[code];
+}
+
+function updateMafiaConfig(code, config) {
+    const room = rooms[code];
+    if (!room || room.mode !== 'mafia') return null;
+    if (config.mafiaCount !== undefined) room.mafiaConfig.mafiaCount = Math.min(Math.max(1, config.mafiaCount), 4);
+    if (config.doctorEnabled !== undefined) room.mafiaConfig.doctorEnabled = config.doctorEnabled;
+    if (config.policeEnabled !== undefined) room.mafiaConfig.policeEnabled = config.policeEnabled;
+    return room;
+}
+
+function startMafiaGame(code) {
+    const room = rooms[code];
+    if (!room) return null;
+
+    room.status = 'playing';
+    const playerIds = Object.keys(room.players);
+    const playerCount = playerIds.length;
+
+    if (playerCount < 4) return null;
+
+    const config = room.mafiaConfig;
+    const shuffled = shuffleArray([...playerIds]);
+
+    const mafiaCount = Math.min(config.mafiaCount, Math.floor(playerCount / 3));
+    const roles = [];
+
+    for (let i = 0; i < mafiaCount; i++) roles.push('mafia');
+    if (config.doctorEnabled && playerCount >= 4) roles.push('doctor');
+    if (config.policeEnabled && playerCount >= 5) roles.push('police');
+    while (roles.length < playerCount) roles.push('citizen');
+
+    const shuffledRoles = shuffleArray(roles);
+
+    shuffled.forEach((id, i) => {
+        room.players[id].role = shuffledRoles[i];
+        room.players[id].alive = true;
+        room.players[id].team = mafiaRoles[shuffledRoles[i]].team;
+        room.players[id].lastVote = null;
+    });
+
+    room.game = {
+        phase: 'night',
+        day: 1,
+        mafiaChoices: {},
+        doctorChoice: null,
+        policeChoice: null,
+        votes: {},
+        nominated: [],
+        dead: [],
+        nightResolved: false,
+        dayMessages: [],
+        lastCheckResult: null,
+        mafiaTeam: shuffled.filter(id => room.players[id].role === 'mafia')
+    };
+
+    Object.keys(room.players).forEach(id => { room.scores[id] = 0; });
+
+    return {
+        code,
+        players: room.players,
+        day: 1,
+        phase: 'night',
+        mafiaConfig: config,
+        teamNames: room.teamNames,
+        mafiaTeam: room.game.mafiaTeam
+    };
+}
+
+function mafiaKill(code, mafiaId, targetId) {
+    const room = rooms[code];
+    if (!room || !room.game || room.game.phase !== 'night') return null;
+    if (room.players[mafiaId]?.role !== 'mafia') return null;
+    if (!room.players[targetId] || !room.players[targetId].alive) return null;
+
+    room.game.mafiaChoices[mafiaId] = targetId;
+
+    const allMafiaVoted = room.game.mafiaTeam.every(id => room.game.mafiaChoices[id] !== undefined);
+    const counts = {};
+    Object.values(room.game.mafiaChoices).forEach(id => { counts[id] = (counts[id] || 0) + 1; });
+    const maxCount = Math.max(...Object.values(counts));
+    const agreed = Object.entries(counts).find(([_, c]) => c === maxCount);
+
+    if (allMafiaVoted) {
+        return { waiting: false, target: agreed ? agreed[0] : null, submittedCount: Object.keys(room.game.mafiaChoices).length, totalMafia: room.game.mafiaTeam.length };
+    }
+
+    return { waiting: true, submittedCount: Object.keys(room.game.mafiaChoices).length, totalMafia: room.game.mafiaTeam.length };
+}
+
+function doctorSave(code, doctorId, targetId) {
+    const room = rooms[code];
+    if (!room || !room.game || room.game.phase !== 'night') return null;
+    if (room.players[doctorId]?.role !== 'doctor') return null;
+    if (targetId && (!room.players[targetId] || !room.players[targetId].alive)) return null;
+
+    room.game.doctorChoice = targetId;
+    return { saved: targetId };
+}
+
+function policeCheck(code, policeId, targetId) {
+    const room = rooms[code];
+    if (!room || !room.game || room.game.phase !== 'night') return null;
+    if (room.players[policeId]?.role !== 'police') return null;
+    if (!room.players[targetId] || !room.players[targetId].alive) return null;
+
+    const target = room.players[targetId];
+    const isMafia = target.role === 'mafia';
+    room.game.policeChoice = targetId;
+    room.game.lastCheckResult = { targetId, targetName: target.name, isMafia };
+
+    return { targetId, targetName: target.name, isMafia };
+}
+
+function resolveMafiaNight(code) {
+    const room = rooms[code];
+    if (!room || !room.game) return null;
+
+    const killed = [];
+    const saved = [];
+
+    const mafiaTarget = Object.values(room.game.mafiaChoices)[0] || null;
+    const doctorTarget = room.game.doctorChoice;
+
+    if (mafiaTarget && doctorTarget === mafiaTarget) {
+        saved.push({ socketId: mafiaTarget, name: room.players[mafiaTarget].name });
+    } else if (mafiaTarget && room.players[mafiaTarget]) {
+        room.players[mafiaTarget].alive = false;
+        killed.push({ socketId: mafiaTarget, name: room.players[mafiaTarget].name, role: room.players[mafiaTarget].role, killedBy: 'mafia' });
+        room.game.dead.push({ socketId: mafiaTarget, killedBy: 'mafia', day: room.game.day });
+    }
+
+    room.game.mafiaChoices = {};
+    room.game.doctorChoice = null;
+    room.game.policeChoice = null;
+    room.game.phase = 'day';
+    room.game.nightResolved = true;
+    room.game.votes = {};
+    room.game.nominated = [];
+
+    const win = checkMafiaWin(code);
+
+    return {
+        killed,
+        saved,
+        day: room.game.day,
+        players: room.players,
+        checkResult: room.game.lastCheckResult,
+        win
+    };
+}
+
+function nominatePlayer(code, nominatorId, targetId) {
+    const room = rooms[code];
+    if (!room || !room.game || room.game.phase !== 'day') return null;
+    if (!room.players[nominatorId]?.alive) return null;
+    if (!room.players[targetId]?.alive) return null;
+    if (room.game.nominated.includes(targetId)) return null;
+
+    room.game.nominated.push(targetId);
+    return { nominated: room.game.nominated, players: room.players };
+}
+
+function mafiaVoteDay(code, voterId, targetId) {
+    const room = rooms[code];
+    if (!room || !room.game || room.game.phase !== 'day') return null;
+    if (!room.players[voterId]?.alive) return null;
+
+    if (targetId === 'skip') {
+        room.game.votes[voterId] = 'skip';
+    } else {
+        if (!room.players[targetId]?.alive) return null;
+        room.game.votes[voterId] = targetId;
+    }
+
+    const alivePlayers = Object.values(room.players).filter(p => p.alive);
+    const totalVotes = Object.keys(room.game.votes).length;
+
+    return { totalVotes, neededVotes: alivePlayers.length, votes: room.game.votes };
+}
+
+function resolveMafiaDay(code) {
+    const room = rooms[code];
+    if (!room || !room.game) return null;
+
+    const voteCounts = {};
+    Object.values(room.game.votes).forEach(v => {
+        voteCounts[v] = (voteCounts[v] || 0) + 1;
+    });
+
+    const sorted = Object.entries(voteCounts).sort((a, b) => b[1] - a[1]);
+    const eliminated = [];
+    let skipVotes = voteCounts['skip'] || 0;
+
+    if (sorted.length > 0 && sorted[0][0] !== 'skip') {
+        const topVotes = sorted.filter(([_, c]) => c === sorted[0][1]);
+        if (topVotes.length === 1 && sorted[0][1] > skipVotes) {
+            const targetId = sorted[0][0];
+            room.players[targetId].alive = false;
+            eliminated.push({ socketId: targetId, name: room.players[targetId].name, role: room.players[targetId].role, killedBy: 'voted' });
+            room.game.dead.push({ socketId: targetId, killedBy: 'voted', day: room.game.day });
+        }
+    }
+
+    room.game.votes = {};
+    room.game.nominated = [];
+    room.game.phase = 'night';
+    room.game.day++;
+    room.game.nightResolved = false;
+    room.game.lastCheckResult = null;
+
+    const win = checkMafiaWin(code);
+
+    return {
+        eliminated,
+        voteCounts,
+        skipVotes,
+        day: room.game.day,
+        players: room.players,
+        win
+    };
+}
+
+function checkMafiaWin(code) {
+    const room = rooms[code];
+    if (!room || !room.game) return null;
+
+    const alive = Object.values(room.players).filter(p => p.alive);
+    const mafiaAlive = alive.filter(p => p.role === 'mafia').length;
+    const citizensAlive = alive.filter(p => p.team === 'citizen').length;
+
+    if (mafiaAlive === 0) return { winner: 'citizen', reason: 'تم القضاء على المافيا!' };
+    if (mafiaAlive >= citizensAlive) return { winner: 'mafia', reason: 'المافيا سيطرت على المدينة!' };
+
+    return null;
+}
+
+function getMafiaGameState(code, socketId) {
+    const room = rooms[code];
+    if (!room || !room.game) return null;
+
+    const player = room.players[socketId];
+    if (!player) return null;
+
+    const alive = Object.values(room.players).filter(p => p.alive);
+    const aliveInfo = alive.map(p => ({ socketId: p.socketId, name: p.name, role: p.role }));
+
+    const mafiaVisible = player.role === 'mafia' ? room.game.mafiaTeam.map(id => ({ socketId: id, name: room.players[id].name })) : null;
+
+    return {
+        phase: room.game.phase,
+        day: room.game.day,
+        myRole: player.role,
+        alive: aliveInfo,
+        dead: room.game.dead,
+        mafiaTeam: mafiaVisible,
+        nominated: room.game.nominated,
+        votes: room.game.votes,
+        checkResult: player.role === 'police' ? room.game.lastCheckResult : null,
+        players: room.players,
+        mafiaConfig: room.mafiaConfig
+    };
+}
+
+function addMafiaChatMessage(code, socketId, message) {
+    const room = rooms[code];
+    if (!room || !room.game) return null;
+    const player = room.players[socketId];
+    if (!player || !player.alive) return null;
+
+    const msg = {
+        socketId,
+        name: player.name,
+        message: message.substring(0, 200),
+        timestamp: Date.now(),
+        role: player.role
+    };
+    room.game.dayMessages.push(msg);
+    return msg;
+}
+
 module.exports = {
     createRoom,
     joinRoom,
@@ -844,5 +1164,19 @@ module.exports = {
     finishGame,
     rooms,
     autoConfirmTrapPlayers,
-    autoConfirmOptionPlayers
+    autoConfirmOptionPlayers,
+    createMafiaRoom,
+    updateMafiaConfig,
+    startMafiaGame,
+    mafiaKill,
+    doctorSave,
+    policeCheck,
+    resolveMafiaNight,
+    nominatePlayer,
+    mafiaVoteDay,
+    resolveMafiaDay,
+    checkMafiaWin,
+    getMafiaGameState,
+    addMafiaChatMessage,
+    mafiaRoles
 };

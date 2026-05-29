@@ -132,19 +132,36 @@ function joinRoom() {
 
 socket.on('roomCreated', (room) => {
     currentRoom = room;
-    updateLobby(room);
-    showScreen('screen-lobby');
+    isHost = true;
+    if (room.mode === 'mafia') {
+        updateMafiaLobby(room);
+        showScreen('screen-mafia-lobby');
+    } else {
+        updateLobby(room);
+        showScreen('screen-lobby');
+    }
 });
 
 socket.on('joinedRoom', (room) => {
     currentRoom = room;
-    updateLobby(room);
-    showScreen('screen-lobby');
+    isHost = room.host === socket.id;
+    if (room.mode === 'mafia') {
+        updateMafiaLobby(room);
+        showScreen('screen-mafia-lobby');
+    } else {
+        updateLobby(room);
+        showScreen('screen-lobby');
+    }
 });
 
 socket.on('roomUpdate', (room) => {
     currentRoom = room;
-    updateLobby(room);
+    isHost = room.host === socket.id;
+    if (room.mode === 'mafia') {
+        updateMafiaLobby(room);
+    } else {
+        updateLobby(room);
+    }
 });
 
 socket.on('error', ({ message }) => alert(message));
@@ -899,4 +916,350 @@ function submitCodenamesHint() {
     const count = parseInt(document.getElementById('hintCountInput').value);
     if (!hint || !count || count < 1) return;
     if (currentRoom) socket.emit('submitCodenamesHint', { code: currentRoom.code, hint, count });
+}
+
+let mafiaState = null;
+
+function updateMafiaConfig(key, value) {
+    if (currentRoom) socket.emit('updateMafiaConfig', { code: currentRoom.code, config: { [key]: value } });
+}
+
+function startMafiaGame() {
+    if (currentRoom && isHost) socket.emit('startMafiaGame', { code: currentRoom.code });
+}
+
+function mafiaSendKill(targetId) {
+    if (currentRoom) socket.emit('mafiaKill', { code: currentRoom.code, targetId });
+}
+
+function mafiaSendSave(targetId) {
+    if (currentRoom) socket.emit('doctorSave', { code: currentRoom.code, targetId });
+}
+
+function mafiaSendCheck(targetId) {
+    if (currentRoom) socket.emit('policeCheck', { code: currentRoom.code, targetId });
+}
+
+function mafiaNominate(targetId) {
+    if (currentRoom) socket.emit('mafiaNominate', { code: currentRoom.code, targetId });
+}
+
+function mafiaSendVote(targetId) {
+    if (currentRoom) socket.emit('mafiaVote', { code: currentRoom.code, targetId });
+}
+
+function mafiaSendChat() {
+    const input = document.getElementById('mafiaChatInput');
+    if (!input) return;
+    const msg = input.value.trim();
+    if (!msg) return;
+    socket.emit('mafiaChat', { code: currentRoom.code, message: msg });
+    input.value = '';
+}
+
+function updateMafiaLobby(room) {
+    const codeEl = document.getElementById('mafiaRoomCode');
+    if (codeEl) codeEl.textContent = room.code;
+
+    const list = document.getElementById('mafiaPlayersList');
+    if (!list) return;
+    list.innerHTML = '';
+
+    const config = room.mafiaConfig || { mafiaCount: 1, doctorEnabled: true, policeEnabled: true };
+
+    Object.values(room.players).forEach(player => {
+        const isMe = player.socketId === socket.id;
+        const item = document.createElement('div');
+        item.className = 'player-item';
+        item.innerHTML = `
+            ${getAvatarHTML(player.avatar)}
+            <div class="player-info">
+                <div class="player-name">${player.name} ${isMe ? '(أنت)' : ''} ${player.socketId === room.host ? '⭐' : ''}</div>
+                <div class="player-status ready">جاهز</div>
+            </div>
+            ${isHost && !isMe ? `<button class="kick-btn" onclick="kickPlayer('${player.socketId}')"><i class="fas fa-times"></i></button>` : ''}
+        `;
+        list.appendChild(item);
+    });
+
+    const countEl = document.getElementById('mafiaPlayerCount');
+    if (countEl) countEl.textContent = Object.keys(room.players).length;
+
+    const countDisplay = document.getElementById('mafiaCountDisplay');
+    if (countDisplay) countDisplay.textContent = config.mafiaCount;
+
+    const startBtn = document.getElementById('mafiaStartBtn');
+    if (startBtn) startBtn.style.display = isHost ? 'block' : 'none';
+}
+
+function adjustMafiaCount(delta) {
+    const display = document.getElementById('mafiaCountDisplay');
+    if (!display) return;
+    let count = parseInt(display.textContent) + delta;
+    count = Math.max(1, Math.min(4, count));
+    display.textContent = count;
+    updateMafiaConfig('mafiaCount', count);
+}
+
+socket.on('mafiaGameStarted', (data) => {
+    currentRoom = { ...currentRoom, players: data.players };
+});
+
+socket.on('mafiaState', (state) => {
+    mafiaState = state;
+    renderMafiaScreen(state);
+});
+
+function renderMafiaScreen(state) {
+    if (state.phase === 'night') {
+        renderMafiaNight(state);
+    } else if (state.phase === 'day') {
+        renderMafiaDay(state);
+    } else if (state.phase === 'voting') {
+        renderMafiaVoting(state);
+    }
+}
+
+function renderMafiaNight(state) {
+    showScreen('screen-mafia-night');
+    const titleEl = document.getElementById('mafiaNightTitle');
+    if (titleEl) titleEl.textContent = `الليل - الجولة ${state.day}`;
+    const roleEl = document.getElementById('mafiaNightRoleBadge');
+    if (roleEl) roleEl.textContent = `دورك: ${mafiaRoles[state.myRole]?.emoji} ${mafiaRoles[state.myRole]?.name}`;
+    const descEl = document.getElementById('mafiaNightDesc');
+    if (descEl) descEl.textContent = mafiaRoles[state.myRole]?.description;
+
+    const actions = document.getElementById('mafiaNightActions');
+    if (!actions) return;
+    actions.innerHTML = '';
+
+    if (state.myRole === 'mafia') {
+        const targets = state.alive.filter(p => p.role !== 'mafia');
+        document.getElementById('mafiaNightDesc').textContent = 'اختر ضحية لقتلها الليلة';
+
+        targets.forEach(p => {
+            const btn = document.createElement('button');
+            btn.className = 'mafia-target-btn';
+            btn.textContent = p.name;
+            btn.onclick = () => {
+                actions.querySelectorAll('.mafia-target-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                mafiaSendKill(p.socketId);
+            };
+            actions.appendChild(btn);
+        });
+    } else if (state.myRole === 'doctor') {
+        document.getElementById('mafiaNightDesc').textContent = 'اختر شخصاً لإنقاذه الليلة';
+        const targets = state.alive;
+
+        targets.forEach(p => {
+            const btn = document.createElement('button');
+            btn.className = 'mafia-target-btn';
+            btn.textContent = p.name;
+            btn.onclick = () => {
+                actions.querySelectorAll('.mafia-target-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                mafiaSendSave(p.socketId);
+            };
+            actions.appendChild(btn);
+        });
+    } else if (state.myRole === 'police') {
+        document.getElementById('mafiaNightDesc').textContent = 'اختر شخصاً للتحقق من هويته';
+        const targets = state.alive.filter(p => p.socketId !== socket.id);
+
+        targets.forEach(p => {
+            const btn = document.createElement('button');
+            btn.className = 'mafia-target-btn';
+            btn.textContent = p.name;
+            btn.onclick = () => {
+                actions.querySelectorAll('.mafia-target-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                mafiaSendCheck(p.socketId);
+            };
+            actions.appendChild(btn);
+        });
+    } else {
+        actions.innerHTML = '<div class="mafia-sleeping">  تنام بهدوء...</div>';
+    }
+
+    startTimer(30, 'mafiaNightTimer');
+}
+
+function renderMafiaDay(state) {
+    showScreen('screen-mafia-day');
+    const titleEl = document.getElementById('mafiaDayTitle');
+    if (titleEl) titleEl.textContent = `النهار - الجولة ${state.day}`;
+    const aliveEl = document.getElementById('mafiaAliveCount');
+    if (aliveEl) aliveEl.textContent = `${state.alive.length} أحياء`;
+
+    const chat = document.getElementById('mafiaChat');
+    if (chat) chat.scrollTop = chat.scrollHeight;
+
+    startTimer(60, 'mafiaDayTimer');
+}
+
+function renderMafiaVoting(state) {
+    showScreen('screen-mafia-day');
+    const titleEl = document.getElementById('mafiaDayTitle');
+    if (titleEl) titleEl.textContent = `اليوم ${state.day} - التصويت`;
+
+    const voteArea = document.getElementById('mafiaVoteButtons');
+    if (!voteArea) return;
+    voteArea.innerHTML = '';
+
+    const alive = state.alive.filter(p => p.socketId !== socket.id);
+
+    alive.forEach(p => {
+        const btn = document.createElement('button');
+        btn.className = 'mafia-vote-btn';
+        btn.textContent = p.name;
+        btn.onclick = () => {
+            voteArea.querySelectorAll('.mafia-vote-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            mafiaSendVote(p.socketId);
+        };
+        voteArea.appendChild(btn);
+    });
+
+    const skipBtn = document.createElement('button');
+    skipBtn.className = 'mafia-vote-btn mafia-skip-btn';
+    skipBtn.textContent = 'تخطي';
+    skipBtn.onclick = () => {
+        voteArea.querySelectorAll('.mafia-vote-btn').forEach(b => b.classList.remove('selected'));
+        skipBtn.classList.add('selected');
+        mafiaSendVote('skip');
+    };
+    voteArea.appendChild(skipBtn);
+
+    startTimer(30, 'mafiaDayTimer');
+}
+
+socket.on('mafiaNightStart', (data) => {
+    if (mafiaState) {
+        mafiaState.phase = 'night';
+        mafiaState.day = data.day;
+    }
+});
+
+socket.on('mafiaKillUpdate', (data) => {
+    const desc = document.getElementById('mafiaNightDesc');
+    if (desc) desc.textContent = `تم التصويت: ${data.submittedCount}/${data.totalMafia}`;
+});
+
+socket.on('doctorSaveConfirm', (data) => {
+    const desc = document.getElementById('mafiaNightDesc');
+    if (desc) desc.textContent = data.saved ? '  تم اختيار شخص لإنقاذه' : '  لم تختر أحداً';
+});
+
+socket.on('policeCheckResult', (data) => {
+    const desc = document.getElementById('mafiaNightDesc');
+    if (desc) desc.textContent = data.isMafia ? `  ${data.targetName} - مافيا!` : `  ${data.targetName} - مواطن`;
+});
+
+socket.on('mafiaNightResult', (data) => {
+    const banner = document.getElementById('mafiaDeathAnnouncement');
+    const deadName = document.getElementById('mafiaDeadPlayerName');
+    const deadRole = document.getElementById('mafiaDeadPlayerRole');
+    if (banner) {
+        if (data.killed.length > 0) {
+            banner.style.display = 'block';
+            if (deadName) deadName.textContent = data.killed.map(k => k.name).join(', ');
+            if (deadRole) deadRole.textContent = `الدور: ${data.killed.map(k => mafiaRoles[k.role]?.name).join(', ')}`;
+        } else if (data.saved.length > 0) {
+            banner.style.display = 'block';
+            if (deadName) deadName.textContent = 'تم إنقاذ شخص!';
+            if (deadRole) deadRole.textContent = 'الطبيب أنقذ الضحية';
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+});
+
+socket.on('mafiaDayStart', (data) => {
+    if (mafiaState) {
+        mafiaState.phase = 'day';
+        mafiaState.day = data.day;
+    }
+    const banner = document.getElementById('mafiaDeathAnnouncement');
+    if (banner) banner.style.display = 'none';
+});
+
+socket.on('mafiaChatMessage', (msg) => {
+    const chat = document.getElementById('mafiaChat');
+    if (!chat) return;
+    const div = document.createElement('div');
+    div.className = 'mafia-chat-msg';
+    div.innerHTML = `<strong>${msg.name}:</strong> ${msg.message}`;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+});
+
+socket.on('mafiaNominationUpdate', (data) => {
+    if (mafiaState) mafiaState.nominated = data.nominated;
+});
+
+socket.on('mafiaVotingStart', (data) => {
+    if (mafiaState) {
+        mafiaState.phase = 'voting';
+        mafiaState.nominated = data.nominated;
+    }
+});
+
+socket.on('mafiaVoteUpdate', (data) => {
+    const desc = document.getElementById('mafiaNightDesc');
+    if (desc) desc.textContent = `الأصوات: ${data.totalVotes}/${data.neededVotes}`;
+});
+
+socket.on('mafiaDayResult', (data) => {
+    const banner = document.getElementById('mafiaDeathAnnouncement');
+    const deadName = document.getElementById('mafiaDeadPlayerName');
+    const deadRole = document.getElementById('mafiaDeadPlayerRole');
+    if (banner) {
+        banner.style.display = 'block';
+        if (data.eliminated.length > 0) {
+            if (deadName) deadName.textContent = data.eliminated.map(e => e.name).join(', ');
+            if (deadRole) deadRole.textContent = `الدور: ${data.eliminated.map(e => mafiaRoles[e.role]?.name).join(', ')}`;
+        } else {
+            if (deadName) deadName.textContent = 'لم يتم طرد أحد';
+            if (deadRole) deadRole.textContent = '';
+        }
+    }
+});
+
+socket.on('mafiaGameOver', (data) => {
+    const container = document.getElementById('mafiaRoleReveal');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const winnerBanner = document.getElementById('mafiaWinnerBanner');
+    if (winnerBanner) {
+        winnerBanner.textContent = data.win.winner === 'mafia' ? '  المافيا فازت!' : '  المواطنون فازوا!';
+        winnerBanner.className = data.win.winner === 'mafia' ? 'mafia-winner-mafia' : 'mafia-winner-citizen';
+        winnerBanner.style.display = 'block';
+    }
+
+    const playersGrid = document.getElementById('mafiaPlayersGrid');
+    const grid = playersGrid || container;
+
+    Object.values(data.players).forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'mafia-role-card';
+        card.style.borderLeftColor = mafiaRoles[p.role]?.team === 'mafia' ? '#E74C3C' : '#2ECC71';
+        card.innerHTML = `
+            <div class="mafia-role-emoji">${mafiaRoles[p.role]?.emoji || '❓'}</div>
+            <div class="mafia-role-name">${p.name}</div>
+            <div class="mafia-role-title">${mafiaRoles[p.role]?.name || '???'} ${!p.alive ? '(مات)' : ''}</div>
+        `;
+        grid.appendChild(card);
+    });
+
+    showScreen('screen-mafia-results');
+});
+
+function sendMafiaChatMessage() {
+    mafiaSendChat();
+}
+
+function sendMafiaChatOnEnter(e) {
+    if (e.key === 'Enter') mafiaSendChat();
 }
