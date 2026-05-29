@@ -1142,6 +1142,172 @@ function addMafiaChatMessage(code, socketId, message) {
     return msg;
 }
 
+function createCodenamesRoom(hostSocketId, hostName) {
+    const code = generateCode();
+    rooms[code] = {
+        code,
+        host: hostSocketId,
+        mode: 'codenames',
+        teamNames: { A: 'الفريق الأحمر', B: 'الفريق الأزرق' },
+        scores: {},
+        players: {
+            [hostSocketId]: {
+                socketId: hostSocketId,
+                name: hostName,
+                team: 'A',
+                isLeader: true,
+                score: 0,
+                ready: true,
+                trapAnswer: null,
+                selectedOption: null,
+                hasConfirmed: false,
+                avatar: null
+            }
+        },
+        game: null,
+        status: 'waiting'
+    };
+    rooms[code].scores[hostSocketId] = 0;
+    return rooms[code];
+}
+
+function startCodenamesStandalone(code) {
+    const room = rooms[code];
+    if (!room) return null;
+
+    room.status = 'playing';
+
+    const allWords = shuffleArray(codenamesWords).slice(0, 25);
+    const teamAWords = allWords.slice(0, 9);
+    const teamBWords = allWords.slice(9, 17);
+    const neutralWords = allWords.slice(17, 24);
+    const assassinWord = allWords[24];
+
+    const gridWords = shuffleArray(allWords);
+
+    const cardTypes = {};
+    gridWords.forEach((word, index) => {
+        if (teamAWords.includes(word)) cardTypes[index] = 'A';
+        else if (teamBWords.includes(word)) cardTypes[index] = 'B';
+        else if (word === assassinWord) cardTypes[index] = 'assassin';
+        else cardTypes[index] = 'neutral';
+    });
+
+    room.game = {
+        currentTeam: 'A',
+        cardTypes: cardTypes,
+        words: gridWords,
+        revealed: {},
+        score: { A: 9, B: 8 },
+        phase: 'clue',
+        clue: null,
+        guessCount: 0,
+        turnCount: 0
+    };
+
+    Object.keys(room.players).forEach(id => { room.scores[id] = 0; });
+
+    const spymasters = {};
+    Object.values(room.players).forEach(p => {
+        if (p.isLeader) spymasters[p.team] = p.socketId;
+    });
+
+    return {
+        code,
+        words: gridWords,
+        cardTypes: cardTypes,
+        currentTeam: 'A',
+        score: { A: 9, B: 8 },
+        players: room.players,
+        teamNames: room.teamNames,
+        spymasters
+    };
+}
+
+function submitClue(code, socketId, clueWord, clueCount) {
+    const room = rooms[code];
+    if (!room || !room.game || room.game.phase !== 'clue') return null;
+    if (room.players[socketId]?.role !== 'spymaster' && !room.players[socketId]?.isLeader) return null;
+
+    const playerTeam = room.players[socketId].team;
+    if (playerTeam !== room.game.currentTeam) return null;
+
+    const boardWords = room.game.words.map(w => w.toLowerCase());
+    if (boardWords.includes(clueWord.toLowerCase())) return null;
+
+    room.game.clue = { word: clueWord, count: parseInt(clueCount), team: playerTeam };
+    room.game.phase = 'guess';
+    room.game.guessCount = 0;
+
+    return { clueWord, clueCount: parseInt(clueCount), team: playerTeam };
+}
+
+function guessCodenamesWord(code, socketId, wordIndex) {
+    const room = rooms[code];
+    if (!room || !room.game || room.game.phase !== 'guess') return null;
+    if (room.players[socketId]?.team !== room.game.currentTeam) return null;
+    if (room.game.revealed[wordIndex] !== undefined) return null;
+
+    const cardType = room.game.cardTypes[wordIndex];
+    room.game.revealed[wordIndex] = cardType;
+    room.game.guessCount++;
+
+    if (cardType === room.game.currentTeam) {
+        room.game.score[room.game.currentTeam]--;
+
+        if (room.game.score[room.game.currentTeam] === 0) {
+            return { type: cardType, correct: true, gameOver: true, winner: room.game.currentTeam, score: room.game.score };
+        }
+
+        return { type: cardType, correct: true, gameOver: false, score: room.game.score };
+    }
+
+    if (cardType === 'assassin') {
+        const losingTeam = room.game.currentTeam;
+        const winningTeam = losingTeam === 'A' ? 'B' : 'A';
+        return { type: 'assassin', correct: false, gameOver: true, winner: winningTeam, score: room.game.score };
+    }
+
+    const otherTeam = room.game.currentTeam === 'A' ? 'B' : 'A';
+    room.game.currentTeam = otherTeam;
+    room.game.phase = 'clue';
+    room.game.clue = null;
+
+    return { type: cardType, correct: false, gameOver: false, nextTeam: otherTeam, score: room.game.score };
+}
+
+function endCodenamesTurn(code, socketId) {
+    const room = rooms[code];
+    if (!room || !room.game || room.game.phase !== 'guess') return null;
+    if (room.players[socketId]?.team !== room.game.currentTeam) return null;
+
+    const otherTeam = room.game.currentTeam === 'A' ? 'B' : 'A';
+    room.game.currentTeam = otherTeam;
+    room.game.phase = 'clue';
+    room.game.clue = null;
+
+    return { nextTeam: otherTeam };
+}
+
+function getCodenamesGameState(code, socketId) {
+    const room = rooms[code];
+    if (!room || !room.game) return null;
+
+    return {
+        words: room.game.words,
+        cardTypes: room.game.cardTypes,
+        revealed: room.game.revealed,
+        currentTeam: room.game.currentTeam,
+        score: room.game.score,
+        phase: room.game.phase,
+        clue: room.game.clue,
+        players: room.players,
+        teamNames: room.teamNames,
+        isMyTurn: room.players[socketId]?.team === room.game.currentTeam,
+        isSpymaster: room.players[socketId]?.isLeader
+    };
+}
+
 module.exports = {
     createRoom,
     joinRoom,
@@ -1178,5 +1344,11 @@ module.exports = {
     checkMafiaWin,
     getMafiaGameState,
     addMafiaChatMessage,
-    mafiaRoles
+    mafiaRoles,
+    createCodenamesRoom,
+    startCodenamesStandalone,
+    submitClue,
+    guessCodenamesWord,
+    endCodenamesTurn,
+    getCodenamesGameState
 };

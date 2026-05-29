@@ -57,6 +57,11 @@
                         <div class="mode-option-title">مافيا</div>
                         <div class="mode-option-desc">أدوار مخفية - ليل ونهار</div>
                     </div>
+                    <div class="mode-option" id="modeCodenames" onclick="selectGameMode('codenames')">
+                        <span class="mode-option-icon">🕵️</span>
+                        <div class="mode-option-title">كود نيمز</div>
+                        <div class="mode-option-desc">كلمات سرية - تلميحات</div>
+                    </div>
                 </div>
             </div>
 
@@ -320,34 +325,139 @@
 
     <div class="screen" id="screen-codenames">
         <div class="header-bar">
-            <div class="header-logo">لعبة الأساطير</div>
+            <div class="header-logo">كود نيمز</div>
             <div class="header-icons">
-                <div class="header-icon"><i class="fas fa-pause"></i></div>
+                <div class="header-icon"><i class="fas fa-user-secret"></i></div>
             </div>
         </div>
 
-        <div class="game-header">
+        <div class="game-header" style="background: linear-gradient(135deg, #2c3e50, #34495e);">
             <div class="round-info">
-                <div class="round-number" style="background: linear-gradient(135deg, #E74C3C, #3498DB);">4</div>
+                <div class="round-number" style="background: linear-gradient(135deg, #E74C3C, #3498DB);">🕵️</div>
                 <div>
                     <div class="round-title">كود نيمز</div>
-                    <span class="badge badge-gold"><i class="fas fa-key"></i> الفريق الأحمر vs الأزرق</span>
+                    <span class="badge badge-gold" id="codenamesTeamTurn">دور الفريق: ---</span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <div style="color: #E74C3C; font-weight: 700;" id="codenamesScoreA">9</div>
+                <div style="color: #B8A9C9;">-</div>
+                <div style="color: #3498DB; font-weight: 700;" id="codenamesScoreB">8</div>
+            </div>
+        </div>
+
+        <div id="codenamesClueArea" style="display: none; margin: 10px 15px;">
+            <div class="card" style="background: rgba(245, 166, 35, 0.1); border: 1px solid rgba(245, 166, 35, 0.3); padding: 12px;">
+                <h4 style="color: var(--gold); margin-bottom: 8px; text-align: center;">
+                    <i class="fas fa-lightbulb"></i> أنت السباي ماستر
+                </h4>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="clueWordInput" placeholder="كلمة التلميح..." maxlength="20" style="flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; color: white; font-family: 'Tajawal'; outline: none; text-align: center;">
+                    <input type="number" id="clueCountInput" placeholder="العدد" min="1" max="9" style="width: 70px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; color: white; font-family: 'Tajawal'; outline: none; text-align: center;">
+                    <button class="btn-hint-submit" onclick="submitSpymasterClue()" style="background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: #1A0B2E; border: none; border-radius: 8px; padding: 10px 16px; font-weight: 700; cursor: pointer;">إرسال</button>
                 </div>
             </div>
         </div>
 
-        <div class="score-board" id="codenamesScoreBoard"></div>
-
-        <div class="card card-gold" style="text-align: center; margin-bottom: 10px;">
-            <div style="font-size: 1.2rem; font-weight: 700;" id="codenamesHint">---</div>
-        </div>
-
-        <div id="codenamesHintInputArea" style="display: none; margin-bottom: 10px;"></div>
-
-        <div id="codenamesLeaderHint" style="display: none;" class="card card-purple">
+        <div id="codenamesClueDisplay" style="display: none; margin: 10px 15px;">
+            <div class="card" style="background: rgba(245, 166, 35, 0.1); border: 1px solid var(--gold); border-radius: 12px; padding: 12px; text-align: center;">
+                <div style="font-size: 0.8rem; color: #B8A9C9;">التلميح</div>
+                <div style="font-size: 1.5rem; font-weight: 900; color: var(--gold);" id="currentClueWord">---</div>
+                <div style="font-size: 1.2rem; font-weight: 700; color: white;" id="currentClueCount">---</div>
+            </div>
         </div>
 
         <div class="codenames-grid" id="codenamesGrid"></div>
+
+        <div id="codenamesEndTurnArea" style="display: none; margin: 10px 15px;">
+            <button class="btn btn-outline btn-block" onclick="endCodenamesTurn()">
+                <i class="fas fa-stop"></i> إيقاف التخمين و턴 الفريق الآخر
+            </button>
+        </div>
+
+        <div id="codenamesLastResult" style="display: none; margin: 10px 15px;">
+            <div class="card" style="text-align: center; padding: 12px;" id="codenamesResultCard">
+                <span id="codenamesResultText"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="screen" id="screen-codenames-lobby">
+        <div class="header-bar">
+            <div class="header-logo">لعبة الأساطير</div>
+            <div class="header-icons">
+                <div class="header-icon" onclick="showScreen('screen-home')"><i class="fas fa-home"></i></div>
+                <div class="header-icon" onclick="copyCode()"><i class="fas fa-share-alt"></i></div>
+            </div>
+        </div>
+
+        <div class="lobby-container">
+            <div class="mode-badge">
+                <i class="fas fa-user-secret"></i>
+                <span>كود نيمز</span>
+            </div>
+
+            <h1 class="section-title">غرفة كود نيمز</h1>
+            <p class="section-subtitle">شارك الكود مع أصدقائك</p>
+
+            <div class="room-code" id="codenamesRoomCode">------</div>
+
+            <div style="text-align: center; margin: 10px 0;">
+                <button class="btn btn-outline" onclick="copyCode()"><i class="fas fa-copy"></i> نسخ الكود</button>
+            </div>
+
+            <div class="divider"></div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                <div class="card" style="background: rgba(231, 76, 60, 0.1); border: 1px solid rgba(231, 76, 60, 0.3);">
+                    <h4 style="color: #E74C3C; text-align: center; margin-bottom: 8px;">🔴 الفريق الأحمر</h4>
+                    <div id="codenamesTeamA" class="players-list" style="max-height: 120px;"></div>
+                </div>
+                <div class="card" style="background: rgba(52, 152, 219, 0.1); border: 1px solid rgba(52, 152, 219, 0.3);">
+                    <h4 style="color: #3498DB; text-align: center; margin-bottom: 8px;">🔵 الفريق الأزرق</h4>
+                    <div id="codenamesTeamB" class="players-list" style="max-height: 120px;"></div>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-bottom: 10px;">
+                <span style="color: #B8A9C9; font-size: 0.85rem;">
+                    <i class="fas fa-info-circle"></i> اختر فريقك بالنقر على المربعات
+                </span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                <button class="btn btn-outline" id="pickCodenamesTeamA" onclick="pickCodenamesTeam('A')" style="border-color: #E74C3C; color: #E74C3C;">
+                    انضم للأحمر
+                </button>
+                <button class="btn btn-outline" id="pickCodenamesTeamB" onclick="pickCodenamesTeam('B')" style="border-color: #3498DB; color: #3498DB;">
+                    انضم للأزرق
+                </button>
+            </div>
+
+            <div class="divider"></div>
+
+            <h3 style="margin-bottom: 10px; color: var(--gold); font-size: 0.95rem;">
+                <i class="fas fa-info-circle"></i> قوانين كود نيمز
+            </h3>
+            <div class="card" style="font-size: 0.8rem; color: #B8A9C9; line-height: 1.6;">
+                <p>• كل فريق لديه سباي ماستر + لاعبين ميدانيين</p>
+                <p>• السباي ماستر يعطي تلميح: كلمة واحدة + رقم</p>
+                <p>• اللاعبون يخمنون بناءً على التلميح</p>
+                <p>• تخمين صحيح = تكمل | خاطئ = ينتهي الدور</p>
+                <p>• ⚫ القاتل = خسارة فورية</p>
+                <p>• 🔴 الأحمر: 9 كلمات | 🔵 الأزرق: 8 كلمات</p>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="codenamesProgressFill" style="width: 16%;"></div>
+            </div>
+
+            <button class="btn btn-primary btn-large btn-block" id="codenamesStartBtn" onclick="startCodenamesStandalone()" style="display: none;">
+                <i class="fas fa-play-circle"></i> ابدأ اللعبة
+            </button>
+        </div>
     </div>
 
     <div class="screen" id="screen-mafia-lobby">

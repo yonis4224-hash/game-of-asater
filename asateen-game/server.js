@@ -12,7 +12,9 @@ const {
     createMafiaRoom, updateMafiaConfig, startMafiaGame,
     mafiaKill, doctorSave, policeCheck, resolveMafiaNight,
     nominatePlayer, mafiaVoteDay, resolveMafiaDay,
-    getMafiaGameState, addMafiaChatMessage
+    getMafiaGameState, addMafiaChatMessage,
+    createCodenamesRoom, startCodenamesStandalone,
+    submitClue, guessCodenamesWord, endCodenamesTurn, getCodenamesGameState
 } = require('./js/game-logic');
 
 const app = express();
@@ -341,6 +343,8 @@ io.on('connection', (socket) => {
             let room;
             if (mode === 'mafia') {
                 room = createMafiaRoom(socket.id, playerName);
+            } else if (mode === 'codenames') {
+                room = createCodenamesRoom(socket.id, playerName);
             } else {
                 room = createRoom(socket.id, playerName, mode);
             }
@@ -563,6 +567,84 @@ io.on('connection', (socket) => {
     socket.on('mafiaChat', ({ code, message }) => {
         const msg = addMafiaChatMessage(code, socket.id, message);
         if (msg) io.to(code).emit('mafiaChatMessage', msg);
+    });
+
+    socket.on('startCodenamesStandalone', ({ code }) => {
+        try {
+            const room = getRoom(code);
+            if (room && room.host === socket.id && room.mode === 'codenames') {
+                clearTimers(code);
+                const gameData = startCodenamesStandalone(code);
+                if (gameData) {
+                    io.to(code).emit('codenamesGameStarted', gameData);
+                    Object.entries(room.players).forEach(([id]) => {
+                        const state = getCodenamesGameState(code, id);
+                        io.to(id).emit('codenamesState', state);
+                    });
+                }
+            }
+        } catch (err) {
+            console.error('startCodenamesStandalone error:', err);
+        }
+    });
+
+    socket.on('submitClue', ({ code, clueWord, clueCount }) => {
+        const result = submitClue(code, socket.id, clueWord, clueCount);
+        if (result) {
+            io.to(code).emit('clueSubmitted', result);
+            Object.entries(getRoom(code)?.players || {}).forEach(([id]) => {
+                const state = getCodenamesGameState(code, id);
+                io.to(id).emit('codenamesState', state);
+            });
+        }
+    });
+
+    socket.on('guessCodenamesWord', ({ code, wordIndex }) => {
+        const result = guessCodenamesWord(code, socket.id, wordIndex);
+        if (result) {
+            io.to(code).emit('codenamesGuessResult', { wordIndex, ...result });
+            if (result.gameOver) {
+                const room = getRoom(code);
+                io.to(code).emit('codenamesGameOver', { winner: result.winner, score: result.score, players: room?.players });
+            } else {
+                Object.entries(getRoom(code)?.players || {}).forEach(([id]) => {
+                    const state = getCodenamesGameState(code, id);
+                    io.to(id).emit('codenamesState', state);
+                });
+            }
+        }
+    });
+
+    socket.on('endCodenamesTurn', ({ code }) => {
+        const result = endCodenamesTurn(code, socket.id);
+        if (result) {
+            io.to(code).emit('codenamesTurnEnded', result);
+            Object.entries(getRoom(code)?.players || {}).forEach(([id]) => {
+                const state = getCodenamesGameState(code, id);
+                io.to(id).emit('codenamesState', state);
+            });
+        }
+    });
+
+    socket.on('pickCodenamesTeam', ({ code, team }) => {
+        const room = getRoom(code);
+        if (!room || room.status !== 'waiting' || room.mode !== 'codenames') return;
+        const player = room.players[socket.id];
+        if (!player) return;
+
+        const oldTeam = player.team;
+        player.team = team;
+
+        if (player.isLeader) {
+            player.isLeader = false;
+            const oldTeamPlayers = Object.values(room.players).filter(p => p.team === oldTeam);
+            if (oldTeamPlayers.length > 0) oldTeamPlayers[0].isLeader = true;
+        }
+
+        const newTeamHasLeader = Object.values(room.players).some(p => p.team === team && p.isLeader);
+        if (!newTeamHasLeader) player.isLeader = true;
+
+        io.to(code).emit('roomUpdate', room);
     });
 
     socket.on('revealCodenameWord', ({ code, wordIndex }) => {

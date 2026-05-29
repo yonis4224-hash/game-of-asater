@@ -1260,6 +1260,246 @@ function sendMafiaChatMessage() {
     mafiaSendChat();
 }
 
+let codenamesState = null;
+
+function pickCodenamesTeam(team) {
+    if (currentRoom) socket.emit('pickCodenamesTeam', { code: currentRoom.code, team });
+}
+
+function startCodenamesStandalone() {
+    if (currentRoom && isHost) socket.emit('startCodenamesStandalone', { code: currentRoom.code });
+}
+
+function submitSpymasterClue() {
+    const word = document.getElementById('clueWordInput').value.trim();
+    const count = parseInt(document.getElementById('clueCountInput').value);
+    if (!word || !count || count < 1) return;
+    socket.emit('submitClue', { code: currentRoom.code, clueWord: word, clueCount: count });
+    document.getElementById('clueWordInput').value = '';
+    document.getElementById('clueCountInput').value = '';
+}
+
+function guessCodenamesWord(wordIndex) {
+    if (currentRoom) socket.emit('guessCodenamesWord', { code: currentRoom.code, wordIndex });
+}
+
+function endCodenamesTurn() {
+    if (currentRoom) socket.emit('endCodenamesTurn', { code: currentRoom.code });
+}
+
+function updateCodenamesLobby(room) {
+    const codeEl = document.getElementById('codenamesRoomCode');
+    if (codeEl) codeEl.textContent = room.code;
+
+    const listA = document.getElementById('codenamesTeamA');
+    const listB = document.getElementById('codenamesTeamB');
+    if (listA) listA.innerHTML = '';
+    if (listB) listB.innerHTML = '';
+
+    Object.values(room.players).forEach(player => {
+        const isMe = player.socketId === socket.id;
+        const div = document.createElement('div');
+        div.style.cssText = 'padding: 6px 8px; margin: 3px 0; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 0.8rem;';
+        div.innerHTML = `${player.name} ${isMe ? '(أنت)' : ''} ${player.isLeader ? '🕵️' : ''}`;
+        if (player.team === 'A') {
+            if (listA) listA.appendChild(div);
+        } else {
+            if (listB) listB.appendChild(div);
+        }
+    });
+
+    const startBtn = document.getElementById('codenamesStartBtn');
+    if (startBtn) startBtn.style.display = isHost ? 'block' : 'none';
+}
+
+socket.on('roomCreated', (room) => {
+    currentRoom = room;
+    isHost = true;
+    if (room.mode === 'mafia') {
+        updateMafiaLobby(room);
+        showScreen('screen-mafia-lobby');
+    } else if (room.mode === 'codenames') {
+        updateCodenamesLobby(room);
+        showScreen('screen-codenames-lobby');
+    } else {
+        updateLobby(room);
+        showScreen('screen-lobby');
+    }
+});
+
+socket.on('joinedRoom', (room) => {
+    currentRoom = room;
+    isHost = room.host === socket.id;
+    if (room.mode === 'mafia') {
+        updateMafiaLobby(room);
+        showScreen('screen-mafia-lobby');
+    } else if (room.mode === 'codenames') {
+        updateCodenamesLobby(room);
+        showScreen('screen-codenames-lobby');
+    } else {
+        updateLobby(room);
+        showScreen('screen-lobby');
+    }
+});
+
+socket.on('roomUpdate', (room) => {
+    currentRoom = room;
+    isHost = room.host === socket.id;
+    if (room.mode === 'mafia') {
+        updateMafiaLobby(room);
+    } else if (room.mode === 'codenames') {
+        updateCodenamesLobby(room);
+    } else {
+        updateLobby(room);
+    }
+});
+
+socket.on('codenamesGameStarted', (data) => {
+    currentRoom = { ...currentRoom, players: data.players };
+});
+
+socket.on('codenamesState', (state) => {
+    codenamesState = state;
+    renderCodenamesStandalone(state);
+});
+
+function renderCodenamesStandalone(state) {
+    showScreen('screen-codenames');
+
+    const teamTurn = document.getElementById('codenamesTeamTurn');
+    const tn = state.teamNames || { A: 'الفريق الأحمر', B: 'الفريق الأزرق' };
+    const colorNames = { A: '🔴 الأحمر', B: '🔵 الأزرق' };
+    if (teamTurn) {
+        teamTurn.innerHTML = `دور <span style="color: ${state.currentTeam === 'A' ? '#E74C3C' : '#3498DB'}">${colorNames[state.currentTeam]}</span> - ${tn[state.currentTeam]}`;
+    }
+
+    const scoreA = document.getElementById('codenamesScoreA');
+    const scoreB = document.getElementById('codenamesScoreB');
+    if (scoreA) scoreA.textContent = state.score.A;
+    if (scoreB) scoreB.textContent = state.score.B;
+
+    const clueArea = document.getElementById('codenamesClueArea');
+    const clueDisplay = document.getElementById('codenamesClueDisplay');
+    const endTurnArea = document.getElementById('codenamesEndTurnArea');
+
+    if (state.phase === 'clue') {
+        if (clueArea) clueArea.style.display = (state.isSpymaster && state.isMyTurn) ? 'block' : 'none';
+        if (clueDisplay) clueDisplay.style.display = 'none';
+        if (endTurnArea) endTurnArea.style.display = 'none';
+    } else if (state.phase === 'guess') {
+        if (clueArea) clueArea.style.display = 'none';
+        if (clueDisplay) clueDisplay.style.display = 'block';
+        if (endTurnArea) endTurnArea.style.display = (state.isMyTurn && !state.isSpymaster) ? 'block' : 'none';
+
+        const clueWordEl = document.getElementById('currentClueWord');
+        const clueCountEl = document.getElementById('currentClueCount');
+        if (clueWordEl && state.clue) clueWordEl.textContent = `"${state.clue.word}"`;
+        if (clueCountEl && state.clue) clueCountEl.textContent = state.clue.count;
+    }
+
+    const grid = document.getElementById('codenamesGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const cardColors = { A: '#E74C3C', B: '#3498DB', neutral: '#D4A574', assassin: '#2C2C2C' };
+
+    state.words.forEach((word, index) => {
+        const card = document.createElement('div');
+        card.className = 'codename-card';
+
+        const isRevealed = state.revealed[index] !== undefined;
+        const revealedType = state.revealed[index];
+
+        if (isRevealed) {
+            card.style.background = cardColors[revealedType] || '#D4A574';
+            card.style.border = `2px solid ${cardColors[revealedType]}`;
+            card.style.opacity = '0.7';
+            card.style.pointerEvents = 'none';
+            if (revealedType === 'assassin') card.style.color = '#fff';
+        } else if (state.isSpymaster) {
+            card.style.background = cardColors[state.cardTypes[index]] || '#D4A574';
+            card.style.border = `2px solid ${cardColors[state.cardTypes[index]]}`;
+            if (state.cardTypes[index] === 'assassin') card.style.color = '#fff';
+        } else {
+            card.style.background = '#2A1B3D';
+            card.style.border = '2px solid rgba(255,255,255,0.1)';
+            if (state.isMyTurn && state.phase === 'guess') {
+                card.style.cursor = 'pointer';
+            }
+        }
+
+        const cardInner = document.createElement('div');
+        cardInner.className = 'codename-card-inner';
+        cardInner.innerHTML = `<span class="codename-word">${word}</span>`;
+        card.appendChild(cardInner);
+
+        if (!isRevealed && !state.isSpymaster && state.isMyTurn && state.phase === 'guess') {
+            card.onclick = () => guessCodenamesWord(index);
+        }
+
+        grid.appendChild(card);
+    });
+}
+
+socket.on('clueSubmitted', (data) => {
+    const resultEl = document.getElementById('codenamesResultCard');
+    const resultText = document.getElementById('codenamesResultText');
+    if (resultEl && resultText) {
+        resultEl.style.background = 'rgba(245, 166, 35, 0.1)';
+        resultEl.style.borderColor = 'var(--gold)';
+        resultText.textContent = `التلميح: "${data.clueWord}" - ${data.clueCount}`;
+        document.getElementById('codenamesLastResult').style.display = 'block';
+        setTimeout(() => {
+            document.getElementById('codenamesLastResult').style.display = 'none';
+        }, 3000);
+    }
+});
+
+socket.on('codenamesGuessResult', (data) => {
+    const resultEl = document.getElementById('codenamesResultCard');
+    const resultText = document.getElementById('codenamesResultText');
+    if (resultEl && resultText) {
+        const typeNames = { A: 'أحمر', B: 'أزرق', neutral: 'محايد', assassin: 'قاتل' };
+        if (data.type === 'assassin') {
+            resultEl.style.background = 'rgba(0, 0, 0, 0.8)';
+            resultEl.style.borderColor = '#333';
+            resultText.textContent = '  القاتل! خسارة فورية!';
+        } else if (data.correct) {
+            resultEl.style.background = 'rgba(46, 204, 113, 0.1)';
+            resultEl.style.borderColor = '#2ECC71';
+            resultText.textContent = `✅ صحيح! بطاقة ${typeNames[data.type]}`;
+        } else {
+            resultEl.style.background = 'rgba(231, 76, 60, 0.1)';
+            resultEl.style.borderColor = '#E74C3C';
+            resultText.textContent = `❌ خطأ! بطاقة ${typeNames[data.type]} - دور الفريق الآخر`;
+        }
+        document.getElementById('codenamesLastResult').style.display = 'block';
+        setTimeout(() => {
+            document.getElementById('codenamesLastResult').style.display = 'none';
+        }, 3000);
+    }
+});
+
+socket.on('codenamesTurnEnded', (data) => {
+    const resultEl = document.getElementById('codenamesResultCard');
+    const resultText = document.getElementById('codenamesResultText');
+    if (resultEl && resultText) {
+        const tn = codenamesState?.teamNames || { A: 'الفريق الأحمر', B: 'الفريق الأزرق' };
+        resultEl.style.background = 'rgba(52, 152, 219, 0.1)';
+        resultEl.style.borderColor = '#3498DB';
+        resultText.textContent = `تم إيقاف التخمين - دور ${tn[data.nextTeam]}`;
+        document.getElementById('codenamesLastResult').style.display = 'block';
+        setTimeout(() => {
+            document.getElementById('codenamesLastResult').style.display = 'none';
+        }, 3000);
+    }
+});
+
+socket.on('codenamesGameOver', (data) => {
+    const tn = { A: 'الفريق الأحمر 🔴', B: 'الفريق الأزرق 🔵' };
+    alert(`🏆 ${tn[data.winner]} فاز باللعبة!`);
+});
+
 function sendMafiaChatOnEnter(e) {
     if (e.key === 'Enter') mafiaSendChat();
 }
