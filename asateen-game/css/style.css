@@ -441,44 +441,57 @@ body {
     font-family: 'Tajawal', sans-serif; font-size: 0.9rem;
 }
 
-.codenames-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 8px 0; }
+.codenames-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin: 12px 0;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
 
 .codename-card {
-    aspect-ratio: 1.2;
-    border-radius: 6px;
+    aspect-ratio: 1;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 700;
-    font-size: 0.65rem;
+    font-size: 0.85rem;
     cursor: pointer;
     transition: all 0.3s ease;
     text-align: center;
-    padding: 3px;
+    padding: 6px;
     position: relative;
     overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.15);
 }
 
 .codename-card-inner {
     background: rgba(255, 255, 255, 0.95);
-    border-radius: 4px;
-    padding: 4px 2px;
-    width: 90%;
+    border-radius: 8px;
+    padding: 8px 4px;
+    width: 92%;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 60%;
+    min-height: 65%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .codename-word {
     color: #1A0B2E;
-    font-size: 0.55rem;
-    font-weight: 700;
-    line-height: 1.1;
+    font-size: 0.75rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.codename-card:hover { transform: scale(1.03); }
-.codename-card.revealed { pointer-events: none; opacity: 0.7; }
+.codename-card:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
+.codename-card.revealed { pointer-events: none; opacity: 0.8; }
 
 .spymaster-hint-box {
     background: var(--glass);
@@ -853,10 +866,10 @@ body {
     .drawing-canvas { height: 220px; }
     .canvas-tools { gap: 4px; }
     .tool-btn { width: 30px; height: 30px; font-size: 0.75rem; }
-    .codenames-grid { gap: 3px; }
-    .codename-card { font-size: 0.5rem; border-radius: 4px; padding: 2px; }
-    .codename-word { font-size: 0.45rem; }
-    .codename-card-inner { padding: 3px 2px; }
+    .codenames-grid { gap: 6px; padding: 8px; }
+    .codename-card { font-size: 0.65rem; border-radius: 8px; padding: 4px; }
+    .codename-word { font-size: 0.6rem; }
+    .codename-card-inner { padding: 5px 3px; }
     .results-container { padding: 0 4px; }
     .results-section { padding: 12px; margin-bottom: 8px; }
     .results-section h3 { font-size: 0.8rem; }
@@ -903,8 +916,9 @@ body {
     .timer { padding: 5px 10px; font-size: 0.95rem; }
     .score-value { font-size: 1.1rem; }
     .drawing-canvas { height: 100px; }
-    .codenames-grid { grid-template-columns: repeat(3, 1fr); gap: 3px; }
+    .codenames-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
     .avatar-selector { grid-template-columns: repeat(3, 1fr); }
+    .avatar-option { width: 35px; height: 35px; }
     .avatar-option { width: 45px; height: 45px; }
     .round-transition-title { font-size: 1.2rem; }
     .round-transition-subtitle { font-size: 0.85rem; }
